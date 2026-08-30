@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["shared", "server", "tests/server*.ts", "tests/game*.ts"]
+}
