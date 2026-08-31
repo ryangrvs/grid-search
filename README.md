@@ -25,9 +25,12 @@ Production mode serves the built browser files and game API together on port 431
 ## Play
 
 1. By default, you are the Operative and the agent is the Spymaster. You can choose the opposite pairing when starting a new match. Roles stay fixed for the entire match so an Operative never inherits a secret map it previously saw as Spymaster.
-2. The Spymaster submits one word and a count. The Operative can guess up to count + 1 cards, or end the turn early.
+2. The Spymaster submits one word and a count. The Operative can guess **at most that count** of cards, or end the turn early. A clue of 1 allows exactly one guess, right or wrong. There is no bonus guess or carryover from a previous clue.
 3. Blue cards advance your shared goal. Red or Innocent ends the guessing phase. The Assassin immediately loses the match. Reveal every Blue card to win.
 4. Only the actor whose turn it is can act. A Spymaster clue hands control to the Operative; ending guessing returns control to the Spymaster.
+5. At game-over, the key becomes visible to both roles. Cards actually guessed remain marked separately from untouched cards revealed only for the end-of-game review; scores do not change during this review.
+
+**Next Round** reuses the current 25 words, reshuffles their positions and secret key, and clears progress. **New Game** deals 25 fresh words from a larger local pool, with no overlap against the immediately previous board. Both controls let you choose your role and confirm before replacing the board. They are human-only actions, not agent tools.
 
 Red's displayed score counts revealed hazards; it does not represent another player. Clue legality checks are mechanical, not a semantic cheating detector.
 
@@ -37,6 +40,7 @@ Red's displayed score counts revealed hazards; it does not represent another pla
 semanticspy/
 ├── README.md                  # Setup, gameplay, protocol and security notes
 ├── IMPLEMENTATION.md          # Design and integration contract
+├── notes.md                   # Future two-human play ideas; not implemented
 ├── package.json
 ├── package-lock.json
 ├── index.html
@@ -57,11 +61,14 @@ semanticspy/
 │   └── mcp.ts                 # SDK-backed MCP resources and tools
 ├── src/
 │   ├── main.ts                # UI, human actions and opt-in wake orchestration
+│   ├── board-view.ts          # Turn labels, card badges and reveal decisions
 │   ├── style.css
 │   ├── webmcp.ts              # Browser tool registration
 │   └── codex.ts               # Direct browser WebSocket client
 └── tests/
     ├── game.test.ts
+    ├── feedback.test.ts       # Reproductions from human playtesting
+    ├── board-view.test.ts     # Role visibility, turn labels and reveal feedback
     ├── server.test.ts         # Includes real MCP SDK client integration
     ├── webmcp.test.ts
     └── codex.test.ts          # Mock socket; never starts a real Codex turn
@@ -137,4 +144,4 @@ See `IMPLEMENTATION.md` for component ownership and the HTTP/DTO contracts. Comp
 
 ## Verification baseline
 
-The initial implementation passes TypeScript checking, a Vite production build, and 26 automated tests covering the engine, HTTP authorization, real MCP client interoperability, WebMCP registration, and mock Codex socket lifecycle. The development page returned HTTP 200. A real automatic wake of the desktop's active thread has **not** been verified; no Codex turn is sent by the test suite. Browser visual/interaction QA has not been performed.
+The playtest update passes TypeScript checking, a Vite production build, and 43 automated tests covering exact guess limits, terminal key visibility, fresh word selection, round resets, card/turn presentation, HTTP authorization, real MCP client interoperability, WebMCP registration, and mock Codex socket lifecycle. The development page returned HTTP 200. A real automatic wake of the desktop's active thread has **not** been verified; no Codex turn is sent by the test suite. Browser visual/interaction QA has not been performed.

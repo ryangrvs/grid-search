@@ -68,6 +68,7 @@ export function createApp(options: { game?: Game; threadId?: string; distDir?: s
         if ((path === '/api/board' || path === '/api/agent/board') && method === 'GET') { json(response, 200, game.getBoard(actor)); return; }
         if ((path === '/api/action' || path === '/api/agent/action') && method === 'POST') { json(response, 200, game.act(actor, parseAction(await body(request)))); return; }
         if (path === '/api/new' && method === 'POST') { json(response, 200, game.reset(parseRole(await body(request)))); return; }
+        if (path === '/api/next-round' && method === 'POST') { json(response, 200, game.nextRound(parseRole(await body(request)))); return; }
         json(response, 404, { error: 'Unknown endpoint or method' }); return;
       }
       if (method !== 'GET' && method !== 'HEAD') { json(response, 405, { error: 'Method not allowed' }); return; }

@@ -1,4 +1,5 @@
 import type { Action, Board, Role } from '../shared/types';
+import { actionTitle, cardPresentation, clueLabel } from './board-view';
 import { CodexClient, type CodexConfig } from './codex';
 import { agentPrompt, registerWebMCP } from './webmcp';
 import './style.css';
@@ -86,6 +87,9 @@ class SemanticSpyApp {
   private statusMessage = 'Connecting…';
   private errorMessage = '';
   private mcpMessage = 'Checking WebMCP support…';
+  private previousRevealed = new Set<string>();
+  private allowRevealAnimation = false;
+  private suppressNextRevealAnimation = false;
   private codex: CodexClient;
   private pollTimer: number | undefined;
 
@@ -137,12 +141,13 @@ class SemanticSpyApp {
       <div class="board-layout">
         <section class="panel board-panel">
           <div class="section-head"><div><h2>Field of words</h2><span id="boardMeta" class="small">Waiting for board…</span></div><span id="gameStatus" class="pill">—</span></div>
+          <div id="clueBanner" class="clue-banner" hidden><span class="clue-kicker">CURRENT CLUE</span><strong id="clueWord"></strong><span id="clueCount"></span></div>
           <div id="boardGrid" class="board-grid" aria-label="SemanticSpy word cards"></div>
           <div class="scorebar"><div class="score blue"><span>Blue found</span><strong id="blueScore">—</strong></div><div class="score red"><span>Red revealed</span><strong id="redScore">—</strong></div></div>
         </section>
         <aside class="stack">
-          <section class="panel action-panel"><div class="section-head"><h2>Your move</h2><span id="phaseLabel" class="small">—</span></div><div id="actionBody" class="action-body"></div></section>
-          <section class="panel"><div class="section-head"><h2>New match</h2></div><p class="hint">Choose your role. A new match resets the current in-memory board.</p><div class="action-row"><div class="field"><label for="roleSelect">Human role</label><select id="roleSelect"><option value="operative">Operative</option><option value="spymaster">Spymaster</option></select></div><button id="newGame" class="button secondary">Start new</button></div></section>
+          <section class="panel action-panel"><div class="section-head"><h2 id="actionTitle">Your turn</h2><span id="phaseLabel" class="small">—</span></div><div id="actionBody" class="action-body"></div></section>
+          <section class="panel"><div class="section-head"><h2>Reset or rotate</h2></div><p class="hint">Choose your role, then keep the words for a new key or deal a fresh field.</p><div class="action-row"><div class="field"><label for="roleSelect">Human role</label><select id="roleSelect"><option value="operative">Operative</option><option value="spymaster">Spymaster</option></select></div></div><div class="reset-actions"><button id="nextRound" class="button secondary">Next Round</button><button id="newGame" class="button">New Game</button></div><p class="reset-help"><strong>Next Round</strong> keeps these 25 words and deals a new key. <strong>New Game</strong> deals 25 fresh words.</p></section>
           <section class="panel"><div class="section-head"><h2>History</h2></div><div id="log" class="log"></div></section>
         </aside>
       </div>
@@ -158,6 +163,7 @@ class SemanticSpyApp {
 
   private bindShellEvents(): void {
     this.container.querySelector<HTMLButtonElement>('#newGame')?.addEventListener('click', () => { void this.newGame(); });
+    this.container.querySelector<HTMLButtonElement>('#nextRound')?.addEventListener('click', () => { void this.nextRound(); });
     this.container.querySelector<HTMLButtonElement>('#saveConnection')?.addEventListener('click', () => this.saveConnectionFromUI());
     this.container.querySelector<HTMLInputElement>('#autoWake')?.addEventListener('change', (event) => {
       this.autoWake = (event.target as HTMLInputElement).checked;
@@ -181,11 +187,17 @@ class SemanticSpyApp {
   private async refreshHumanBoard(): Promise<void> {
     if (!this.bootstrapData) return;
     const next = await jsonRequest<Board>('/api/board', this.bootstrapData.humanToken);
-    const changed = !this.board || this.board.id !== next.id || this.board.revision !== next.revision;
+    const previous = this.board;
+    const changed = !previous || previous.id !== next.id || previous.revision !== next.revision;
+    if (!changed) return;
+    const newGame = !previous || previous.id !== next.id;
+    this.allowRevealAnimation = !newGame && !this.suppressNextRevealAnimation;
+    this.suppressNextRevealAnimation = false;
     this.board = next;
     this.errorMessage = '';
+    if (newGame) this.previousRevealed.clear();
     // Polling should not wipe a clue/guess draft while the server revision is unchanged.
-    if (changed) this.render();
+    this.render();
   }
 
   private async pollBoard(): Promise<void> {
@@ -210,16 +222,25 @@ class SemanticSpyApp {
   }
 
   private async newGame(): Promise<void> {
+    await this.resetGame('/api/new', 'New Game', 'Deal a completely fresh field of 25 words? The current match will be replaced.');
+  }
+
+  private async nextRound(): Promise<void> {
+    await this.resetGame('/api/next-round', 'Next Round', 'Start a new key with the same 25 words? The current round will end.');
+  }
+
+  private async resetGame(path: string, _label: string, confirmation: string): Promise<void> {
     if (!this.bootstrapData || this.busy) return;
     const role = this.container.querySelector<HTMLSelectElement>('#roleSelect')?.value === 'spymaster' ? 'spymaster' : 'operative';
-    if (!window.confirm('Start a new match? The current board will be reset.')) return;
+    if (!window.confirm(confirmation)) return;
     this.busy = true;
     try {
-      await jsonRequest<Board>('/api/new', this.bootstrapData.humanToken, { method: 'POST', body: JSON.stringify({ humanRole: role }) });
+      this.suppressNextRevealAnimation = true;
+      await jsonRequest<Board>(path, this.bootstrapData.humanToken, { method: 'POST', body: JSON.stringify({ humanRole: role }) });
       this.failedWake = null;
       await this.refreshHumanBoard();
-      this.maybeWake('new match');
-    } catch (error) { this.errorMessage = error instanceof Error ? error.message : 'Could not start a new match.'; }
+      this.maybeWake(path === '/api/new' ? 'new game' : 'next round');
+    } catch (error) { this.suppressNextRevealAnimation = false; this.errorMessage = error instanceof Error ? error.message : 'Could not start a new match.'; }
     finally { this.busy = false; this.render(); }
   }
 
@@ -253,42 +274,59 @@ class SemanticSpyApp {
     const turn = this.container.querySelector('#turnPill');
     const status = this.container.querySelector('#gameStatus');
     if (role) role.textContent = board ? `You: ${board.humanRole}` : 'Role —';
-    if (turn) turn.textContent = board ? `${board.turn === 'human' ? 'Your' : 'Agent'} turn` : 'Turn —';
+    if (turn) turn.textContent = !board ? 'Turn —' : board.status !== 'playing' ? 'Match ended' : `${board.turn === 'human' ? 'Your' : 'Agent'} turn`;
     if (status) status.textContent = board ? board.status.toUpperCase() : '—';
+    const actionHeading = this.container.querySelector('#actionTitle'); if (actionHeading) actionHeading.textContent = board ? actionTitle(board) : 'Your turn';
     const phase = this.container.querySelector('#phaseLabel'); if (phase) phase.textContent = board ? board.phase : '—';
-    const meta = this.container.querySelector('#boardMeta'); if (meta) meta.textContent = board ? `Revision ${board.revision} · ${board.guessesRemaining} guess${board.guessesRemaining === 1 ? '' : 'es'} left` : 'Waiting for board…';
+    const meta = this.container.querySelector('#boardMeta'); if (meta) meta.textContent = !board ? 'Waiting for board…' : board.phase === 'clue' ? `Revision ${board.revision} · awaiting clue` : `Revision ${board.revision} · ${board.guessesRemaining} guess${board.guessesRemaining === 1 ? '' : 'es'} left`;
     const blue = this.container.querySelector('#blueScore'); if (blue) blue.textContent = board ? `${board.scores.blue} / ${board.scores.blueTotal}` : '—';
     const red = this.container.querySelector('#redScore'); if (red) red.textContent = board ? `${board.scores.red} / ${board.scores.redTotal}` : '—';
-    this.renderGrid(); this.renderLog(); this.renderAction(); this.renderConnectionFields(); this.renderConnectionStatus();
+    this.renderClueBanner(); this.renderGrid(); this.renderLog(); this.renderAction(); this.renderConnectionFields(); this.renderConnectionStatus();
     const error = this.container.querySelector('#errorMessage'); if (error) error.textContent = this.errorMessage;
     const mcp = this.container.querySelector('#mcpMessage'); if (mcp) mcp.textContent = this.mcpMessage;
   }
 
   private renderGrid(): void {
     const grid = this.container.querySelector('#boardGrid'); if (!grid) return;
+    const boardVersion = this.board ? `${this.board.id}:${this.board.revision}` : '';
+    if (grid.getAttribute('data-board-version') === boardVersion) return;
+    grid.setAttribute('data-board-version', boardVersion);
     grid.replaceChildren();
     if (!this.board) { const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'The board is not available.'; grid.append(empty); return; }
     for (const card of this.board.cards) {
-      const button = document.createElement('button'); button.className = 'card'; button.type = 'button'; button.textContent = card.word;
-      const visible = card.revealed || (this.board.humanRole === 'spymaster' && card.alignment);
-      if (visible && card.alignment) button.classList.add(card.alignment);
-      if (card.revealed) button.classList.add('revealed');
-      if (visible && card.alignment) { const marker = document.createElement('span'); marker.className = 'marker'; marker.textContent = card.alignment; button.append(marker); }
+      const presentation = cardPresentation(this.board, card, this.previousRevealed, this.allowRevealAnimation);
+      const button = document.createElement('button'); button.className = `card ${presentation.tone}`; button.type = 'button';
+      button.append(document.createTextNode(card.word));
+      if (presentation.alignment) button.classList.add(presentation.alignment);
+      if (presentation.animate) button.classList.add('newly-revealed');
+      if (presentation.badge) { const marker = document.createElement('span'); marker.className = 'marker'; marker.textContent = presentation.badge; button.append(marker); }
       const canGuess = this.board.status === 'playing' && this.board.turn === 'human' && this.board.humanRole === 'operative' && this.board.phase === 'guess' && !card.revealed;
       button.disabled = !canGuess;
       if (canGuess) button.addEventListener('click', () => { void this.humanAction({ type: 'make_guess', word: card.word }); });
       grid.append(button);
     }
+    this.previousRevealed = new Set(this.board.cards.filter((card) => card.revealed).map((card) => card.word));
+    this.allowRevealAnimation = false;
+  }
+
+  private renderClueBanner(): void {
+    const banner = this.container.querySelector<HTMLElement>('#clueBanner');
+    if (!banner) return;
+    const label = this.board?.status === 'playing' ? clueLabel(this.board.clue) : null;
+    banner.hidden = !label;
+    if (!label || !this.board?.clue) return;
+    const word = banner.querySelector('#clueWord'); if (word) word.textContent = this.board.clue.word;
+    const count = banner.querySelector('#clueCount'); if (count) count.textContent = `Clue count ${this.board.clue.count} · ${this.board.guessesRemaining} guess${this.board.guessesRemaining === 1 ? '' : 'es'} left`;
   }
 
   private renderAction(): void {
     const body = this.container.querySelector<HTMLElement>('#actionBody'); if (!body) return;
     const board = this.board;
     if (!board) { body.innerHTML = '<p class="hint">Connect to the local server to begin.</p>'; return; }
-    if (board.status !== 'playing') { body.innerHTML = `<p class="hint">Match ${board.status}. Start a new match to play again.</p>`; return; }
+    if (board.status !== 'playing') { body.innerHTML = `<p class="hint">Match ${board.status}. Choose Next Round or New Game to play again.</p>`; return; }
     if (board.turn === 'agent') { body.innerHTML = '<p class="hint">Agent’s turn — waiting for its legal move. Updates will appear in the history.</p>'; if (this.failedWake === wakeId(board)) { const button = document.createElement('button'); button.className = 'button warn'; button.textContent = 'Review & wake again'; button.addEventListener('click', () => { if (window.confirm('Retry this wake manually after checking the board?')) this.maybeWake('manual retry', true); }); body.append(button); } return; }
     if (board.humanRole === 'spymaster' && board.phase === 'clue') {
-      body.innerHTML = '<p class="hint">Give your operative one word and a number.</p><div class="action-row"><div class="field"><label for="clue">Clue</label><input id="clue" maxlength="40" autocomplete="off" /></div><div class="field"><label for="count">Count</label><input id="count" type="number" min="1" max="9" value="1" /></div><button id="submitClue" class="button">Send</button></div>';
+      body.innerHTML = '<p class="hint">Give your operative one word and a number.</p><div class="clue-entry"><div class="field"><label for="clue">Clue</label><input id="clue" maxlength="40" autocomplete="off" /></div><div class="clue-form-row"><div class="field count-field"><label for="count">Count</label><input id="count" type="number" min="1" max="9" value="1" /></div><button id="submitClue" class="button">Send clue</button></div></div>';
       body.querySelector('#submitClue')?.addEventListener('click', () => { const clue = body.querySelector<HTMLInputElement>('#clue')?.value.trim() ?? ''; const count = Number(body.querySelector<HTMLInputElement>('#count')?.value); if (clue && Number.isInteger(count) && count > 0) void this.humanAction({ type: 'submit_clue', clue, count }); });
       return;
     }

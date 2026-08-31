@@ -1,6 +1,6 @@
 # SemanticSpy integration contract
 
-Local Node 24 + TypeScript + Vite vanilla TS. One cooperative Blue partnership: human and agent have opposite fixed roles per match; default human operative, agent spymaster. Optional human spymaster match. Red is a hazard, not another player. 9 blue, 8 red, 7 innocent, 1 assassin. Win all blue; assassin loses; red/innocent ends guessing; count+1 max guesses. End turn returns to spymaster. No role rotation leaking previously seen keys.
+Local Node 24 + TypeScript + Vite vanilla TS. One cooperative Blue partnership: human and agent have opposite fixed roles per match; default human operative, agent spymaster. Optional human spymaster match. Red is a hazard, not another player. 9 blue, 8 red, 7 innocent, 1 assassin. Win all blue; assassin loses; red/innocent ends guessing; exactly clue.count maximum guesses, no bonus/carryover. End turn returns to spymaster. No role rotation leaking previously seen keys. Terminal views expose the key, while cards.revealed continues to mean actually guessed.
 
 ## Implementation responsibilities
 - Luna High engine agent: shared/types.ts, server/game.ts, tests/game.test.ts.
@@ -15,7 +15,8 @@ GET /api/board: humanToken bearer -> human authorized view.
 GET /api/agent/board: agentToken bearer -> agent authorized view and records read at current revision; require fresh agent read before EACH agent mutation (server enforcement).
 POST /api/action: humanToken bearer, body {type:'submit_clue',clue,count} | {type:'make_guess',word} | {type:'end_turn'} -> Board.
 POST /api/agent/action: agentToken bearer, same body -> Board.
-POST /api/new: humanToken bearer, {humanRole:'operative'|'spymaster'} -> Board.
+POST /api/new: humanToken bearer, {humanRole:'operative'|'spymaster'} -> Board. Deals 25 words with no overlap against immediately prior board.
+POST /api/next-round: humanToken bearer, same role body -> Board. Keeps current 25 words, shuffles positions/key, clears progress and stale agent read, assigns a new game ID.
 Every error non-2xx {error:string}. No public secret board leak. In-memory game lifetime documented, tokens never in persisted browser storage.
 
 ## Board DTO (shared/types.ts)

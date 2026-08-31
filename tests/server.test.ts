@@ -74,6 +74,40 @@ describe('local HTTP and MCP integration', () => {
     expect((await fetch(`${base}/api/new`, { method: 'POST', headers, body: JSON.stringify({ huge: 'x'.repeat(17000) }) })).status).toBe(400);
     expect(app.game.view('human')).toEqual(start);
   });
+
+  it('keeps words on Next Round and replaces them on New Game, both human-only', async () => {
+    const before = app.game.view('human');
+    const words = before.cards.map((card) => card.word).sort();
+    expect((await request('/api/next-round', 'agent', { humanRole: 'operative' })).status).toBe(401);
+    expect((await request('/api/next-round', 'human', { humanRole: 'operative', extra: true })).status).toBe(400);
+    const next = await (await request('/api/next-round', 'human', { humanRole: 'operative' })).json() as Board;
+    expect(next.id).not.toBe(before.id);
+    expect(next.cards.map((card) => card.word).sort()).toEqual(words);
+    expect(next.cards.every((card) => !card.revealed && !('alignment' in card))).toBe(true);
+    const fresh = await (await request('/api/new', 'human', { humanRole: 'spymaster' })).json() as Board;
+    expect(fresh.cards.every((card) => !words.includes(card.word))).toBe(true);
+    expect(fresh.humanRole).toBe('spymaster');
+  });
+
+  it('reveals the remaining key through HTTP and MCP after game-over without inflating scores', async () => {
+    const secret = app.game.getBoard('agent');
+    const assassin = secret.cards.find((card) => card.alignment === 'assassin')!;
+    app.game.act('agent', { type: 'submit_clue', clue: 'Cosmic', count: 1 });
+    app.game.act('human', { type: 'make_guess', word: assassin.word });
+    const board = await (await request('/api/board', 'human')).json() as Board;
+    expect(board.status).toBe('lost');
+    expect(board.cards.filter((card) => card.revealed)).toHaveLength(1);
+    expect(board.cards.every((card) => card.alignment)).toBe(true);
+    expect(board.scores.blue).toBe(0);
+    const client = new Client({ name: 'semanticspy-finished-test', version: '1.0' });
+    try {
+      await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${app.tokens.agent}` } } }));
+      const resource = await client.readResource({ uri: BOARD_URI });
+      const contents = resource.contents[0];
+      if (!('text' in contents)) throw new Error('Expected board JSON');
+      expect(JSON.parse(contents.text)).toEqual(board);
+    } finally { await client.close(); }
+  });
   it('interoperates with an actual MCP client and secures the Spymaster resource', async () => {
     const client = new Client({ name: 'semanticspy-test', version: '1.0' });
     const transport = new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${app.tokens.agent}` } } });

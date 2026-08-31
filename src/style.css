@@ -45,13 +45,24 @@ h2 { font-size: 1.05rem; }
 .section-head .small { color: var(--muted); font-size: .77rem; }
 .board-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .card { position: relative; min-height: 76px; padding: 10px 8px; border: 1px solid #34435f; border-radius: 11px; background: #202c45; color: #f4f7ff; font-weight: 750; letter-spacing: .01em; transition: transform .15s, border-color .15s, background .15s; }
+.card:disabled { opacity: 1; }
 .card:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--blue); }
 .card.revealed { border-color: transparent; }
+.card.key { opacity: .62; border-style: dashed; }
+.card.terminal { border-style: solid; }
 .card.blue { background: linear-gradient(145deg, #2d72c8, #17427f); }
 .card.red { background: linear-gradient(145deg, #bb4d63, #72283e); }
 .card.innocent { background: #8f9ab0; color: #182035; }
 .card.assassin { background: linear-gradient(145deg, #242938, #090c15); }
 .card .marker { display: block; margin-top: 7px; font-size: .62rem; text-transform: uppercase; letter-spacing: .09em; opacity: .8; }
+.card.newly-revealed { animation: card-reveal .65s ease-out both; transform-origin: center; }
+@keyframes card-reveal { from { transform: perspective(600px) rotateY(90deg); opacity: .5; } to { transform: perspective(600px) rotateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .card.newly-revealed { animation: none; } }
+.clue-banner { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; padding: 13px 15px; border: 1px solid rgba(89,169,255,.4); border-radius: 12px; background: rgba(52,123,224,.15); }
+.clue-kicker { color: var(--blue); font-size: .67rem; font-weight: 800; letter-spacing: .14em; }
+.clue-banner strong { font-size: 1.9rem; letter-spacing: -.03em; }
+.clue-banner span:last-child { color: var(--muted); font-size: .82rem; }
+.clue-banner[hidden] { display: none; }
 .scorebar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
 .score { border-radius: 10px; background: var(--panel-2); padding: 9px 11px; }
 .score span { display: block; color: var(--muted); font-size: .7rem; }
@@ -66,6 +77,11 @@ h2 { font-size: 1.05rem; }
 input, select { width: 100%; border: 1px solid #34435f; border-radius: 9px; color: #edf2ff; background: #0d1426; padding: 9px 10px; outline: none; }
 input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(89,169,255,.15); }
 .action-row { align-items: end; margin-top: 12px; }
+.clue-entry { display: grid; gap: 10px; margin-top: 12px; }
+.clue-form-row { display: flex; align-items: end; gap: 10px; }
+.count-field { flex: 0 1 120px; }
+.reset-actions { display: flex; gap: 9px; margin-top: 12px; }
+.reset-help { margin-top: 10px; color: var(--muted); font-size: .73rem; line-height: 1.45; }
 .button { border: 1px solid transparent; border-radius: 9px; padding: 9px 12px; color: #fff; background: var(--blue-strong); font-weight: 750; }
 .button:hover:not(:disabled) { filter: brightness(1.12); }
 .button.secondary { background: #263451; border-color: #3b4c6b; }
@@ -89,5 +105,6 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
   .status-row { justify-content: flex-start; }
   .board-layout { grid-template-columns: 1fr; }
   .card { min-height: 66px; font-size: .78rem; }
-  .connection-row, .action-row { align-items: stretch; flex-wrap: wrap; }
+  .connection-row, .action-row, .clue-form-row { align-items: stretch; flex-wrap: wrap; }
+  .clue-banner { flex-wrap: wrap; gap: 6px 10px; }
 }

@@ -5,6 +5,28 @@ const WORDS = [
   'ANCHOR', 'APPLE', 'ARMOR', 'BEAR', 'BOLT', 'BRIDGE', 'CLOUD', 'COMET', 'CROWN',
   'DESERT', 'DRAGON', 'EAGLE', 'FIRE', 'FOREST', 'GHOST', 'GLASS', 'HAMMER', 'ICE',
   'JAGUAR', 'LASER', 'MOON', 'MOUSE', 'PILOT', 'ROBOT', 'SHADOW',
+  'ACORN', 'AIRPORT', 'ALMOND', 'AMBULANCE', 'ANGEL', 'ANVIL', 'ARROW', 'ASTRONAUT',
+  'AVALANCHE', 'BADGER', 'BALLOON', 'BANANA', 'BANNER', 'BARN', 'BARREL', 'BASIL',
+  'BATTERY', 'BEACON', 'BEETLE', 'BICYCLE', 'BISON', 'BLANKET', 'BLOSSOM', 'BOTTLE',
+  'BOULDER', 'BRANCH', 'BREEZE', 'BROCCOLI', 'BROOM', 'BUBBLE', 'BUCKET', 'BUTTER',
+  'CABIN', 'CACTUS', 'CAMERA', 'CANDLE', 'CANNON', 'CANOE', 'CAPTAIN', 'CARPET',
+  'CARROT', 'CASTLE', 'CEDAR', 'CELLO', 'CHERRY', 'CHISEL', 'CIRCLE', 'CIRCUS',
+  'CLAW', 'CLOCK', 'COBRA', 'COFFEE', 'COIN', 'COLLAR', 'COMPASS', 'CORAL',
+  'CRICKET', 'CRYSTAL', 'CURTAIN', 'DAGGER', 'DAISY', 'DIAMOND', 'DOLPHIN', 'DOMINO',
+  'ECLIPSE', 'ENGINE', 'FALCON', 'FEATHER', 'FIDDLE', 'FIGURE', 'FINCH', 'FLAME',
+  'FLUTE', 'FOUNTAIN', 'FOX', 'FRIDGE', 'FROG', 'GALAXY', 'GARDEN', 'GIRAFFE',
+  'GLOBE', 'GUITAR', 'HARBOR', 'HAWK', 'HELMET', 'HONEY', 'IGLOO', 'ISLAND',
+  'JELLY', 'KETTLE', 'KEY', 'KITE', 'LANTERN', 'LEMON', 'LION', 'LIZARD',
+  'LOCK', 'MAGNET', 'MARBLE', 'MARCH', 'MARKET', 'MASK', 'MEDAL', 'MERMAID',
+  'MIRROR', 'MONKEY', 'NEST', 'NIGHT', 'NUGGET', 'OASIS', 'OCEAN', 'ORBIT',
+  'OTTER', 'OYSTER', 'PANDA', 'PAPER', 'PARACHUTE', 'PARROT', 'PEBBLE', 'PENGUIN',
+  'PENCIL', 'PIRATE', 'PLANET', 'PLUM', 'POCKET', 'POLAR', 'PUMPKIN', 'PYRAMID',
+  'QUARTZ', 'QUEEN', 'RABBIT', 'RADAR', 'RAINBOW', 'RAVEN', 'RELIC', 'RIVER',
+  'ROCKET', 'ROSE', 'SAILOR', 'SATELLITE', 'SCARECROW', 'SHELL', 'SHIELD', 'SKATE',
+  'SKULL', 'SNAKE', 'SNOW', 'SPIDER', 'SPOON', 'SPRING', 'STAR', 'STATUE',
+  'STEAM', 'STORM', 'SUNSET', 'SWORD', 'TIGER', 'TOWER', 'TRAIN', 'TRUMPET',
+  'TUNNEL', 'TURTLE', 'UMBRELLA', 'UNICORN', 'VALLEY', 'VIOLET', 'VOLCANO', 'WAGON',
+  'WHALE', 'WHEEL', 'WILLOW', 'WINDOW', 'WIZARD', 'WOLF', 'YACHT', 'ZEBRA',
 ];
 
 export class GameError extends Error {
@@ -49,7 +71,9 @@ export class Game {
   /** Render a view without changing read authorization state. */
   view(actor: Actor): Board {
     const role = actor === 'human' ? this.humanRole : this.agentRole;
-    const canSeeSecrets = role === 'spymaster';
+    // Once a match is terminal the key is a post-game result, but revealed remains
+    // the actual guessed flag so clients can distinguish guessed from unrevealed cards.
+    const canSeeSecrets = role === 'spymaster' || this.status !== 'playing';
     return {
       id: this.gameId,
       revision: this.revision,
@@ -86,7 +110,7 @@ export class Game {
       if (this.cards.some((card) => card.word.toLowerCase() === clue.toLowerCase())) throw new GameError('Clue cannot be a board word');
       if (!Number.isInteger(action.count) || action.count < 1 || action.count > 9) throw new GameError('Clue count must be an integer from 1 to 9');
       this.clue = { word: clue, count: action.count };
-      this.guessesRemaining = action.count + 1;
+      this.guessesRemaining = action.count;
       this.turn = actor === 'human' ? 'agent' : 'human';
       this.phase = 'guess';
       this.lastAction = `${actor === 'human' ? 'Human' : 'Agent'} gave clue “${clue}” (${action.count})`;
@@ -138,6 +162,22 @@ export class Game {
 
   reset(humanRole: Role = 'operative'): Board {
     if (humanRole !== 'operative' && humanRole !== 'spymaster') throw new GameError('Invalid human role');
+    const previousWords = new Set(this.cards.map((card) => card.word));
+    this.startRound(humanRole);
+    this.initializeCards(undefined, previousWords);
+    return this.view('human');
+  }
+
+  /** Start another round with the same words, but a fresh key and game identity. */
+  nextRound(humanRole: Role = this.humanRole): Board {
+    if (humanRole !== 'operative' && humanRole !== 'spymaster') throw new GameError('Invalid human role');
+    const currentWords = this.cards.map((card) => card.word);
+    this.startRound(humanRole);
+    this.initializeCards(currentWords);
+    return this.view('human');
+  }
+
+  private startRound(humanRole: Role): void {
     this.gameId = randomUUID();
     this.revision = 0;
     this.humanRole = humanRole;
@@ -151,16 +191,19 @@ export class Game {
     this.log = [];
     this.lastAction = 'Match started';
     this.agentReadRevision = null;
-    this.initializeCards();
-    return this.view('human');
   }
 
-  private initializeCards(): void {
-    const words = [...WORDS];
+  private initializeCards(selectedWords?: string[], exclude = new Set<string>()): void {
+    const available = WORDS.filter((word) => !exclude.has(word));
+    if (available.length < 25) throw new GameError('Not enough unused words for a new board');
+    const words = selectedWords ? [...selectedWords] : [...available];
+    if (words.length < 25) throw new GameError('Not enough words for a new board');
+    if (new Set(words).size !== words.length) throw new GameError('A board must contain unique words');
     for (let i = words.length - 1; i > 0; i -= 1) {
       const j = Math.floor(this.random() * (i + 1));
       [words[i], words[j]] = [words[j], words[i]];
     }
+    const boardWords = words.slice(0, 25);
     const alignments: Alignment[] = [
       ...Array<Alignment>(9).fill('blue'), ...Array<Alignment>(8).fill('red'),
       ...Array<Alignment>(7).fill('innocent'), 'assassin',
@@ -170,7 +213,7 @@ export class Game {
       const j = Math.floor(this.random() * (i + 1));
       [alignments[i], alignments[j]] = [alignments[j], alignments[i]];
     }
-    this.cards = words.map((word, index) => ({ word, revealed: false, alignment: alignments[index] }));
+    this.cards = boardWords.map((word, index) => ({ word, revealed: false, alignment: alignments[index] }));
   }
 
   private endTurn(actor: Actor, summary?: string): void {

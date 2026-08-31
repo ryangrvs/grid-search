@@ -15,7 +15,7 @@ export function createGameMcp(game: Game): Server {
     if (role && role !== 'spymaster') throw new Error('Unknown role view');
     if (role === 'spymaster' && game.view('agent').agentRole !== 'spymaster') throw new Error('This agent is not the Spymaster');
     const board = game.getBoard('agent');
-    const result = role === 'spymaster' ? board : { ...board, cards: board.cards.map(({ alignment, ...card }) => card.revealed ? { ...card, alignment } : card) };
+    const result = role === 'spymaster' || board.status !== 'playing' ? board : { ...board, cards: board.cards.map(({ alignment, ...card }) => card.revealed ? { ...card, alignment } : card) };
     return { contents: [{ uri: params.uri, mimeType: 'application/json', text: JSON.stringify(result) }] };
   });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: Object.entries(schemas).map(([name, inputSchema]) => ({ name, inputSchema, description: name === 'get_board' ? 'Read current agent-authorized board before EVERY move.' : `${name}: act for the agent, only after reading the current board.`, annotations: { readOnlyHint: name === 'get_board', destructiveHint: false, openWorldHint: false } })) }));
