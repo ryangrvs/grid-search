@@ -66,6 +66,33 @@ export interface Board {
   lastAction: string;
 }
 
+export type LegalAction = 'submit_clue' | 'make_guess' | 'end_turn';
+
+export interface AuthorizedBoard {
+  id: string;
+  revision: number;
+  cards: Card[];
+  mode: MatchMode;
+  scores: Board['scores'];
+  teamTurnCounts: Board['teamTurnCounts'];
+  turnGuesses: Board['turnGuesses'];
+  lastAction: string;
+}
+
+/** The complete state an identified WebMCP player is allowed to see. */
+export interface AuthorizedState {
+  player: Player;
+  board: AuthorizedBoard;
+  activePlayer: Player;
+  phase: Board['phase'];
+  status: Board['status'];
+  winner: Team | null;
+  clue: Board['clue'];
+  remainingGuesses: number;
+  legalActions: LegalAction[];
+  turnNumber: number;
+}
+
 export type Action =
   | { type: 'submit_clue'; clue: string; count: number }
   | { type: 'make_guess'; word: string }

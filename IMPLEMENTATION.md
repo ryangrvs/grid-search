@@ -4,19 +4,19 @@ SemanticSpy is a static, local-only WebMCP game. The browser owns one `GameContr
 
 ## Runtime modules
 
-- `src/game.ts` is the browser-compatible authoritative turn engine for both Co-op and Versus. It uses roster Player IDs for turn ownership, keeps secret alignments internally, and returns role-filtered boards. Agent reads are player-scoped fresh-read capabilities: every agent mutation requires a new read by that Player at the current revision.
+- `src/game.ts` is the browser-compatible authoritative turn engine for both Co-op and Versus. It uses roster Player IDs for turn ownership, keeps secret alignments internally, and returns role-filtered boards. Agent reads are player-scoped fresh-read capabilities: a Player reads before its first action, and each successful action result establishes that Player's read at the new revision when another action remains legal.
 - `src/roster.ts` owns the fixed four-seat lobby and exposes validated snapshots; it never reads or writes storage. Handles remain internal and are rotated on same-name agent recovery.
 - `src/game.ts` exposes a validated snapshot containing the hidden key, participating Players, match mode, active Player, winner, and turn counters. Fresh agent-read authorization is intentionally not included in that snapshot.
 - `src/state-store.ts` provides `LocalStorageStateStore` under `semanticspy.state.v1` and `MemoryStateStore` for tests. A successful unified-state write removes the obsolete `semanticspy.roster.v1` key from earlier builds.
-- `src/game-controller.ts` is the single browser state boundary and persistence seam. It loads one coherent `{ version: 1, game, roster }` snapshot, saves after every successful mutation, and starts Co-op or Versus from the authoritative roster. Legacy human/agent adapters remain until Issue 005 moves WebMCP to player handles.
-- `src/webmcp.ts` feature-detects `document.modelContext` (with the navigator compatibility path) and registers `get_board`, `submit_clue`, `make_guess`, `end_turn`, and `register` with strict schemas. Tool execution is async, but has no fetch or server dependency. Agent board results use `semanticspy://game/board`; the secret board is never rendered into the human DOM.
+- `src/game-controller.ts` is the single browser state boundary and persistence seam. It loads one coherent `{ version: 1, game, roster }` snapshot, saves after every successful mutation, starts Co-op or Versus from the authoritative roster, resolves player handles, and returns one caller-authorized state shape with legal actions.
+- `src/webmcp.ts` feature-detects `document.modelContext` (with the navigator compatibility path) and imperatively registers `get_context`, `get_state`, `submit_clue`, `make_guess`, `end_turn`, and `register` with strict schemas. State and action results use `semanticspy://game/state`; every dynamic tool is player-handle scoped, and no tool uses `expectedRevision`.
 - `src/main.ts` renders the human view and calls the controller for all refreshes and actions. Polling only re-reads local state to update UI; it is not synchronization with a service.
 
 ## Game rules and views
 
 There are 25 cards: 9 blue, 8 red, 7 innocent, and 1 assassin. Co-op has Blue-only turns while Red remains a hazard. Versus rotates Blue Spymaster, Blue Operative, Red Spymaster, and Red Operative. Revealing a team word credits that team, either participating team can win, and the assassin defeats the guessing team. A wrong guess ends the guessing team's turn. A clue count is the exact maximum number of guesses with no bonus or carryover. The terminal board reveals the key while `revealed` continues to mean actually guessed.
 
-An Operative view hides unrevealed alignments; a Spymaster view receives the key. The active Player is authoritative, while controller identity remains a temporary adapter detail for the current UI and WebMCP tools. The total turn number and per-team counts increment when a Spymaster submits a clue. UI and tools preserve registration, handle recovery, role alignment, New Game (fresh words), and Next Round (same words, fresh key) behavior.
+An Operative view hides unrevealed alignments; a Spymaster view receives the key. The active Player is authoritative, while controller identity remains a temporary UI adapter detail. `get_state` and successful WebMCP actions return the caller's current identity, authorized board, active Player, legal actions, remaining guesses, winner/status, and turn number. The total turn number and per-team counts increment when a Spymaster submits a clue. UI and tools preserve registration, same-name handle recovery, role alignment, New Game (fresh words), and Next Round (same words, fresh key) behavior.
 
 ## Development and verification
 

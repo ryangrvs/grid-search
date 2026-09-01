@@ -1,4 +1,4 @@
-import type { Action, Actor, Board, Lobby, MatchMode, Player, RegistrationResult, Role, Team } from '../shared/types';
+import type { Action, Actor, AuthorizedState, Board, LegalAction, Lobby, MatchMode, Player, RegistrationResult, Role, Team } from '../shared/types';
 import { Game } from './game';
 import { Roster } from './roster';
 import { LocalStorageStateStore, type PersistedState, MemoryStateStore, type StateStore } from './state-store';
@@ -68,6 +68,24 @@ export class GameController {
   viewForPlayer(playerId: string): Board { this.requirePlayer(playerId); return this.game.view(playerId); }
   actForPlayer(playerId: string, action: Action): Board { this.requirePlayer(playerId); const board = this.game.act(playerId, action); this.persist(); return board; }
 
+  /** Resolve a loose WebMCP handle and return its current role-filtered state. */
+  getState(playerHandle: string): AuthorizedState {
+    const player = this.requireHandle(playerHandle);
+    const board = this.game.getBoard(player.id);
+    return this.authorizedState(player, board);
+  }
+
+  /** Execute a handle-scoped WebMCP action through the authoritative game. */
+  actForHandle(playerHandle: string, action: Action): AuthorizedState {
+    const player = this.requireHandle(playerHandle);
+    this.game.act(player.id, action);
+    this.persist();
+    // The returned state is also the caller's fresh read at the new revision,
+    // allowing another action only when it remains this player's turn.
+    const board = this.game.getBoard(player.id);
+    return this.authorizedState(player, board);
+  }
+
   start(mode: MatchMode | 'co-op', role: Role = this.roster.humanRole): Board {
     const normalized: MatchMode = mode === 'co-op' ? 'coop' : mode;
     const lobby = this.roster.view();
@@ -121,6 +139,39 @@ export class GameController {
     const player = this.roster.playerById(id);
     if (!player) throw new Error('Unknown player');
     return player;
+  }
+  private requireHandle(handle: string): Player {
+    if (typeof handle !== 'string' || !handle.trim()) throw new Error('playerHandle must be a non-empty string');
+    const player = this.roster.playerForHandle(handle.trim());
+    if (!player) throw new Error('Unknown or expired playerHandle');
+    return player;
+  }
+  private authorizedState(player: Player, board: Board): AuthorizedState {
+    const active = board.status === 'playing' && board.activePlayer.id === player.id;
+    const legalActions: LegalAction[] = !active ? []
+      : board.phase === 'clue' && player.role === 'spymaster' ? ['submit_clue']
+        : board.phase === 'guess' && player.role === 'operative' ? ['make_guess', 'end_turn'] : [];
+    return {
+      player: { ...player },
+      board: {
+        id: board.id,
+        revision: board.revision,
+        cards: board.cards.map((card) => ({ ...card })),
+        mode: board.mode,
+        scores: { ...board.scores },
+        teamTurnCounts: { ...board.teamTurnCounts },
+        turnGuesses: board.turnGuesses.map((guess) => ({ ...guess })),
+        lastAction: board.lastAction,
+      },
+      activePlayer: { ...board.activePlayer },
+      phase: board.phase,
+      status: board.status,
+      winner: board.winner,
+      clue: board.clue ? { ...board.clue } : null,
+      remainingGuesses: board.guessesRemaining,
+      legalActions,
+      turnNumber: board.turnNumber,
+    };
   }
 }
 

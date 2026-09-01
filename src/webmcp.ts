@@ -1,8 +1,8 @@
-import type { Action, Board, RegistrationResult, Role, Team } from '../shared/types';
+import type { Action, AuthorizedState, RegistrationResult, Role, Team } from '../shared/types';
 import { schemas } from '../shared/schemas';
 import type { GameController } from './game-controller';
 
-export const BOARD_URI = 'semanticspy://game/board';
+export const STATE_URI = 'semanticspy://game/state';
 type JsonSchema = Record<string, unknown>;
 
 export interface ModelContext {
@@ -26,7 +26,7 @@ export interface WebMCPRegistration {
   reason?: string;
 }
 
-const toolNames = ['get_board', 'submit_clue', 'make_guess', 'end_turn', 'register'] as const;
+const toolNames = ['get_context', 'get_state', 'submit_clue', 'make_guess', 'end_turn', 'register'] as const;
 
 function modelContextHost(): ModelContext | undefined {
   const doc = globalThis.document as (Document & { modelContext?: ModelContext }) | undefined;
@@ -72,6 +72,13 @@ function registrationArgs(args: Record<string, unknown>): { name: string; team?:
   return { name, team: args.team as Team | undefined, role: args.role as Role | undefined };
 }
 
+const CONTEXT = [
+  'SemanticSpy objective: work with your teammate to find all your team’s words; in Versus, finish before the other team, and never choose the assassin.',
+  'Register with register({ name, team?, role? }) and keep the returned playerHandle. If you lose context, register again with the same name to recover; this rotates the old handle.',
+  'Call get_state({ playerHandle }) before your first action and whenever another player has acted. On your active turn, a spymaster submits one clue and count; the count is the exact maximum number of guesses with no bonus or carryover. An operative may guess or end_turn; an opponent or innocent word ends the guessing turn.',
+  'Successful actions return authoritative state and can be followed by another action when it remains legal. Use only alignments present in your role-filtered state, and do not reveal secrets through table talk.',
+].join(' ');
+
 /** Register imperative WebMCP tools against the browser-owned controller. */
 export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegistration> {
   const host = options.host ?? modelContextHost();
@@ -79,47 +86,57 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
     return { supported: false, registered: [], reason: 'WebMCP is not supported in this browser.' };
   }
 
-  const mutate = async (action: Action): Promise<{ uri: string; board: Board }> => {
-    const board = options.controller.act('agent', action);
+  const mutate = async (playerHandle: string, action: Action): Promise<{ uri: string; state: AuthorizedState }> => {
+    const state = options.controller.actForHandle(playerHandle, action);
     await options.refreshHumanBoard?.();
-    return { uri: BOARD_URI, board };
+    return { uri: STATE_URI, state };
   };
 
   const tools = [
     {
-      name: 'get_board',
-      description: 'Read the current SemanticSpy board from the agent role. Use this before every move.',
-      inputSchema: schemas.get_board as JsonSchema,
+      name: 'get_context',
+      description: 'Read the concise, static SemanticSpy objective, rules, and tool workflow.',
+      inputSchema: schemas.get_context as JsonSchema,
       execute: async (args: Record<string, unknown>) => {
         requireEmptyArgs(args ?? {});
-        return { uri: BOARD_URI, board: options.controller.getBoard('agent') };
+        return { context: CONTEXT };
+      },
+    },
+    {
+      name: 'get_state',
+      description: 'Read the current role-filtered SemanticSpy state for a registered player handle.',
+      inputSchema: schemas.get_state as JsonSchema,
+      execute: async (args: Record<string, unknown>) => {
+        requireKeys(args, ['playerHandle']);
+        const playerHandle = requireText(args, 'playerHandle');
+        return { uri: STATE_URI, state: options.controller.getState(playerHandle) };
       },
     },
     {
       name: 'submit_clue',
-      description: 'Submit one clue and its count for the agent side. Read get_board immediately before use.',
+      description: 'Submit one clue and its exact maximum guess count for the registered spymaster.',
       inputSchema: schemas.submit_clue as JsonSchema,
       execute: async (args: Record<string, unknown>) => {
-        requireKeys(args, ['clue', 'count']);
-        return mutate({ type: 'submit_clue', clue: requireText(args, 'clue'), count: requireCount(args) });
+        requireKeys(args, ['playerHandle', 'clue', 'count']);
+        return mutate(requireText(args, 'playerHandle'), { type: 'submit_clue', clue: requireText(args, 'clue'), count: requireCount(args) });
       },
     },
     {
       name: 'make_guess',
-      description: 'Make one legal board guess for the agent side. Read get_board immediately before use.',
+      description: 'Make one legal board guess for the registered operative.',
       inputSchema: schemas.make_guess as JsonSchema,
       execute: async (args: Record<string, unknown>) => {
-        requireKeys(args, ['word']);
-        return mutate({ type: 'make_guess', word: requireText(args, 'word') });
+        requireKeys(args, ['playerHandle', 'word']);
+        return mutate(requireText(args, 'playerHandle'), { type: 'make_guess', word: requireText(args, 'word') });
       },
     },
     {
       name: 'end_turn',
-      description: 'End the agent turn. Read get_board immediately before use.',
+      description: 'End the registered operative’s guessing turn.',
       inputSchema: schemas.end_turn as JsonSchema,
       execute: async (args: Record<string, unknown>) => {
-        requireEmptyArgs(args ?? {});
-        return mutate({ type: 'end_turn' });
+        requireKeys(args, ['playerHandle']);
+        return mutate(requireText(args, 'playerHandle'), { type: 'end_turn' });
       },
     },
     {

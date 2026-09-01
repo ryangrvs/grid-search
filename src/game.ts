@@ -244,6 +244,9 @@ export class Game {
     const replacement = this.players.find((p) => p.team === targetTeam && p.role === targetRole);
     this.activePlayerId = replacement?.id
       ?? (targetTeam === 'blue' && targetRole === 'spymaster' ? 'agent-compatibility' : this.humanPlayer().id);
+    // Registration can change the active identity without changing the board
+    // revision, so prior agent reads must not authorize a new roster state.
+    this.agentReads.clear();
   }
 
   /** Begin a match from the current authoritative roster. */
