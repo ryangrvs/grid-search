@@ -3,6 +3,8 @@ export type Actor = 'human' | 'agent';
 export type Alignment = 'blue' | 'red' | 'innocent' | 'assassin';
 export type Team = 'blue' | 'red';
 export type Controller = 'human' | 'agent';
+export type MatchMode = 'coop' | 'versus';
+export type MatchModeInput = MatchMode | 'co-op';
 
 export interface Player {
   id: string;
@@ -46,13 +48,20 @@ export interface Board {
   cards: Card[];
   humanRole: Role;
   agentRole: Role;
+  /** The player whose action is currently required. This is the authoritative turn identity. */
+  activePlayer: Player;
+  activePlayerId: string;
+  mode: MatchMode;
   turn: Actor;
   phase: 'clue' | 'guess';
   status: 'playing' | 'won' | 'lost';
+  winner: Team | null;
   clue: { word: string; count: number } | null;
-  turnGuesses: Array<{ actor: Actor; word: string }>;
+  turnGuesses: Array<{ playerId: string; word: string }>;
   guessesRemaining: number;
   scores: { blue: number; red: number; blueTotal: number; redTotal: number };
+  turnNumber: number;
+  teamTurnCounts: { blue: number; red: number };
   log: Array<{ id: number; text: string }>;
   lastAction: string;
 }

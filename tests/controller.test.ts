@@ -12,10 +12,24 @@ describe('browser GameController', () => {
     expect(controller.lobby().seats[1].player?.displayName).toBe('Atlas');
   });
 
+  it('starts the selected mode from roster player identities', () => {
+    const controller = new GameController({ stateStore: new MemoryStateStore() });
+    controller.register('Blue Spy', 'blue', 'spymaster');
+    controller.register('Red Op', 'red', 'operative');
+    controller.register('Red Spy', 'red', 'spymaster');
+    const board = controller.startVersus();
+    expect(board.mode).toBe('versus');
+    expect(board.activePlayer).toMatchObject({ team: 'blue', role: 'spymaster', id: controller.lobby().seats[1].player?.id });
+    expect(() => controller.act('human', { type: 'submit_clue', clue: 'space', count: 1 })).toThrow('not your turn');
+  });
+
   it('keeps roster persistence across controller instances and resets game state locally', () => {
     const store = new MemoryStateStore();
     const first = new GameController({ stateStore: store });
-    first.register('Atlas');
+    first.register('Nova', 'red', 'operative');
+    const partialLobby = new GameController({ stateStore: store });
+    expect(partialLobby.lobby().seats[2].player?.displayName).toBe('Nova');
+    first.register('Atlas', 'blue', 'spymaster');
     const originalWords = new Set(first.view('human').cards.map((card) => card.word));
     const next = first.nextRound();
     expect(new Set(next.cards.map((card) => card.word))).toEqual(originalWords);
@@ -77,7 +91,11 @@ describe('browser GameController', () => {
     operative.register('Atlas');
     const saved = operative.snapshot();
     const spymaster = new GameController({ humanRole: 'spymaster', stateStore: new MemoryStateStore() });
-    const incoherent: PersistedState = { version: 1, game: saved.game, roster: spymaster.snapshot().roster };
+    const mismatchedGame = {
+      ...saved.game,
+      players: saved.game.players.map((player, index) => index === 0 ? { ...player, id: 'not-the-roster-player' } : player),
+    };
+    const incoherent: PersistedState = { version: 1, game: mismatchedGame, roster: spymaster.snapshot().roster };
     const store = new MemoryStateStore(incoherent);
 
     const restored = new GameController({ stateStore: store });

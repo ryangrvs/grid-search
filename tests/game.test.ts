@@ -183,4 +183,72 @@ describe('SemanticSpy game', () => {
     expect(next.cards.every((card) => card.alignment === undefined)).toBe(true);
     expect(() => game.act('agent', { type: 'submit_clue', clue: 'fresh', count: 1 })).toThrow('Fresh agent board read');
   });
+
+  it('rotates a Co-op clue from Blue Spymaster to Operative and back', () => {
+    const players = [
+      { id: 'you', displayName: 'You', controller: 'human' as const, team: 'blue' as const, role: 'operative' as const },
+      { id: 'blue-spy', displayName: 'Blue Spy', controller: 'agent' as const, team: 'blue' as const, role: 'spymaster' as const },
+    ];
+    const game = new Game({ players, mode: 'coop', random: fixedRandom });
+    expect(game.view('you').activePlayer).toMatchObject({ id: 'blue-spy', team: 'blue', role: 'spymaster' });
+    game.getBoard('blue-spy'); game.act('blue-spy', { type: 'submit_clue', clue: 'space', count: 1 });
+    expect(game.view('you').activePlayer).toMatchObject({ id: 'you', role: 'operative' });
+    game.act('you', { type: 'end_turn' });
+    expect(game.view('you').activePlayer).toMatchObject({ id: 'blue-spy', role: 'spymaster' });
+  });
+
+  it('rotates all four roles in Versus order', () => {
+    const players = [
+      { id: 'blue-op', displayName: 'Blue Op', controller: 'human' as const, team: 'blue' as const, role: 'operative' as const },
+      { id: 'blue-spy', displayName: 'Blue Spy', controller: 'agent' as const, team: 'blue' as const, role: 'spymaster' as const },
+      { id: 'red-op', displayName: 'Red Op', controller: 'agent' as const, team: 'red' as const, role: 'operative' as const },
+      { id: 'red-spy', displayName: 'Red Spy', controller: 'agent' as const, team: 'red' as const, role: 'spymaster' as const },
+    ];
+    const game = new Game({ players, mode: 'versus', random: fixedRandom });
+    const sequence = ['blue-spy', 'blue-op', 'red-spy', 'red-op', 'blue-spy'];
+    expect(game.view('blue-op').activePlayer.id).toBe(sequence[0]);
+    game.getBoard('blue-spy'); game.act('blue-spy', { type: 'submit_clue', clue: 'space', count: 1 });
+    game.act('blue-op', { type: 'end_turn' });
+    game.getBoard('red-spy'); game.act('red-spy', { type: 'submit_clue', clue: 'cosmic', count: 1 });
+    game.getBoard('red-op'); game.act('red-op', { type: 'end_turn' });
+    expect(game.view('blue-op').activePlayer.id).toBe(sequence[4]);
+    expect(game.view('blue-op').turnNumber).toBe(2);
+    expect(game.view('blue-op').teamTurnCounts).toEqual({ blue: 1, red: 1 });
+  });
+
+  it('allows Red to win and awards the assassin victory to the opposing team', () => {
+    const versusPlayers = [
+      { id: 'blue-op', displayName: 'Blue Op', controller: 'human' as const, team: 'blue' as const, role: 'operative' as const },
+      { id: 'blue-spy', displayName: 'Blue Spy', controller: 'agent' as const, team: 'blue' as const, role: 'spymaster' as const },
+      { id: 'red-op', displayName: 'Red Op', controller: 'agent' as const, team: 'red' as const, role: 'operative' as const },
+      { id: 'red-spy', displayName: 'Red Spy', controller: 'agent' as const, team: 'red' as const, role: 'spymaster' as const },
+    ];
+    const versus = new Game({ players: versusPlayers, mode: 'versus', random: fixedRandom });
+    versus.getBoard('blue-spy'); versus.act('blue-spy', { type: 'submit_clue', clue: 'space', count: 1 });
+    versus.act('blue-op', { type: 'end_turn' });
+    const redSecret = versus.getBoard('red-spy');
+    versus.act('red-spy', { type: 'submit_clue', clue: 'cosmic', count: 9 });
+    const redWords = redSecret.cards.filter((card) => card.alignment === 'red').map((card) => card.word);
+    for (const word of redWords) {
+      versus.getBoard('red-op');
+      versus.act('red-op', { type: 'make_guess', word });
+    }
+    expect(versus.view('blue-op')).toMatchObject({ status: 'won', winner: 'red', scores: { red: 8 } });
+
+    const coop = new Game({ players: [
+      { id: 'you', displayName: 'You', controller: 'human' as const, team: 'blue' as const, role: 'operative' as const },
+      { id: 'blue-spy', displayName: 'Blue Spy', controller: 'agent' as const, team: 'blue' as const, role: 'spymaster' as const },
+    ], mode: 'coop', random: fixedRandom });
+    const assassin = coop.getBoard('blue-spy').cards.find((card) => card.alignment === 'assassin')!.word;
+    coop.act('blue-spy', { type: 'submit_clue', clue: 'space', count: 1 });
+    expect(coop.act('you', { type: 'make_guess', word: assassin })).toMatchObject({ status: 'lost', winner: 'red' });
+
+    const redAssassin = new Game({ players: versusPlayers, mode: 'versus', random: fixedRandom });
+    redAssassin.getBoard('blue-spy'); redAssassin.act('blue-spy', { type: 'submit_clue', clue: 'space', count: 1 });
+    redAssassin.act('blue-op', { type: 'end_turn' });
+    const assassinWord = redAssassin.getBoard('red-spy').cards.find((card) => card.alignment === 'assassin')!.word;
+    redAssassin.act('red-spy', { type: 'submit_clue', clue: 'cosmic', count: 1 });
+    redAssassin.getBoard('red-op');
+    expect(redAssassin.act('red-op', { type: 'make_guess', word: assassinWord })).toMatchObject({ status: 'lost', winner: 'blue' });
+  });
 });

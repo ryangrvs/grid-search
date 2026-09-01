@@ -138,6 +138,17 @@ export class Roster {
 
   hasHandle(handle: string): boolean { return this.seats.some((seat) => seat.handle === handle); }
 
+  /** Registered players are the only identities a Game may use for a match. */
+  players(): Player[] { return this.seats.filter((seat): seat is Seat & { player: Player } => seat.player !== null).map((seat) => ({ ...seat.player })); }
+  playerById(id: string): Player | undefined {
+    const player = this.seats.find((seat) => seat.player?.id === id)?.player;
+    return player ? { ...player } : undefined;
+  }
+  playerForHandle(handle: string): Player | undefined {
+    const player = this.seats.find((seat) => seat.handle === handle)?.player;
+    return player ? { ...player } : undefined;
+  }
+
   /** Return the complete roster state for the owning GameController to persist. */
   snapshot(): PersistedRoster {
     return {

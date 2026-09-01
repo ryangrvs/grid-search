@@ -168,14 +168,14 @@ class SemanticSpyApp {
     if (!this.lobby || (mode === 'co-op' && !this.lobby.canStartCoop) || (mode === 'versus' && !this.lobby.canStartVersus)) return;
     this.lobbyOpen = false;
     const roleSelect = this.container.querySelector<HTMLSelectElement>('#lobbyRoleSelect');
-    await this.resetGame(`Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.', roleSelect?.value);
+    await this.resetGame(`Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.', roleSelect?.value, mode);
   }
 
   private async nextRound(): Promise<void> {
     await this.resetGame('Next Round', 'Start a new key with the same 25 words? The current round will end.');
   }
 
-  private async resetGame(_label: string, confirmation: string, selectedRole?: string): Promise<void> {
+  private async resetGame(_label: string, confirmation: string, selectedRole?: string, mode?: 'co-op' | 'versus'): Promise<void> {
     if (this.busy) return;
     const role = (selectedRole ?? this.container.querySelector<HTMLSelectElement>('#roleSelect')?.value) === 'spymaster' ? 'spymaster' : 'operative';
     if (!window.confirm(confirmation)) return;
@@ -183,7 +183,7 @@ class SemanticSpyApp {
     try {
       this.suppressNextRevealAnimation = true;
       if (_label === 'Next Round') this.controller.nextRound(role);
-      else this.controller.newGame(role);
+      else this.controller.newGame(role, mode);
       await this.refreshHumanBoard();
     } catch (error) { this.suppressNextRevealAnimation = false; this.errorMessage = error instanceof Error ? error.message : 'Could not start a new match.'; }
     finally { this.busy = false; this.render(); }
@@ -246,7 +246,7 @@ class SemanticSpyApp {
     const agentClue = this.container.querySelector<HTMLElement>('#agentClue');
     const humanClue = this.container.querySelector<HTMLElement>('#humanClue');
     const activeGuess = board?.status === 'playing' && board.phase === 'guess' && board.clue
-      ? board.turnGuesses.filter((guess) => guess.actor === board.turn)
+      ? board.turnGuesses.filter((guess) => guess.playerId === board.activePlayerId)
       : [];
     if (agentClue) {
       agentClue.classList.remove('is-form');

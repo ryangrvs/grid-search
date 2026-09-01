@@ -19,7 +19,7 @@ describe('playtest feedback regressions', () => {
     game.act('agent', { type: 'submit_clue', clue: 'Cosmic', count: 2 });
 
     const first = game.act('human', { type: 'make_guess', word: blues[0].word });
-    expect(first.turnGuesses).toEqual([{ actor: 'human', word: blues[0].word }]);
+    expect(first.turnGuesses).toEqual([{ playerId: first.activePlayerId, word: blues[0].word }]);
     expect(first.phase).toBe('guess');
 
     const second = game.act('human', { type: 'make_guess', word: blues[1].word });
@@ -35,7 +35,7 @@ describe('playtest feedback regressions', () => {
     const agentBoard = game.getBoard('agent');
 
     const result = game.act('agent', { type: 'make_guess', word: blue.word });
-    expect(result.turnGuesses).toEqual([{ actor: 'agent', word: blue.word }]);
+    expect(result.turnGuesses).toEqual([{ playerId: result.activePlayerId, word: blue.word }]);
     expect(agentBoard.turn).toBe('agent');
     expect(result.phase).toBe('guess');
   });
