@@ -7,7 +7,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node", "vitest/globals"]
+    "types": ["vitest/globals"]
   },
-  "include": ["shared", "server", "tests", "src"]
+  "include": ["shared", "tests", "src"]
 }

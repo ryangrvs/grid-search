@@ -1,5 +1,19 @@
-import { randomUUID } from 'node:crypto';
 import type { Action, Actor, Alignment, Board, Card, Role } from '../shared/types';
+
+export type IdFactory = () => string;
+
+function randomId(): string {
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi?.randomUUID) return cryptoApi.randomUUID();
+  if (cryptoApi?.getRandomValues) {
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 
 const WORDS = [
   'ANCHOR', 'APPLE', 'ARMOR', 'BEAR', 'BOLT', 'BRIDGE', 'CLOUD', 'COMET', 'CROWN',
@@ -35,9 +49,9 @@ export class GameError extends Error {
 
 type InternalCard = { word: string; revealed: boolean; alignment: Alignment };
 
-/** The authoritative, in-memory game. A fresh process starts a new match. */
+/** The authoritative, browser-owned game. State is intentionally in memory. */
 export class Game {
-  private gameId = randomUUID();
+  private gameId: string;
   private revision = 0;
   private cards: InternalCard[] = [];
   private humanRole: Role;
@@ -53,7 +67,8 @@ export class Game {
   private lastAction = 'Match started';
   private agentReadRevision: number | null = null;
 
-  constructor(humanRole: Role = 'operative', private readonly random: () => number = Math.random) {
+  constructor(humanRole: Role = 'operative', private readonly random: () => number = Math.random, private readonly idFactory: IdFactory = randomId) {
+    this.gameId = this.idFactory();
     this.humanRole = humanRole;
     this.turn = humanRole === 'spymaster' ? 'human' : 'agent';
     this.phase = 'clue';
@@ -184,7 +199,7 @@ export class Game {
   }
 
   private startRound(humanRole: Role): void {
-    this.gameId = randomUUID();
+    this.gameId = this.idFactory();
     this.revision = 0;
     this.humanRole = humanRole;
     this.turn = humanRole === 'spymaster' ? 'human' : 'agent';

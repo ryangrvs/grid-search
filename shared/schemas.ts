@@ -1,4 +1,4 @@
-/** Input schemas shared by HTTP, MCP, and browser tool registration. */
+/** Strict input schemas shared by browser WebMCP registration and tests. */
 export const schemas = {
   get_board: {
     type: 'object' as const, properties: {}, required: [], additionalProperties: false,

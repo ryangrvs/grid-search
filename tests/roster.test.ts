@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MemoryRosterStore, Roster } from '../server/roster';
+import { MemoryRosterStore, Roster } from '../src/roster';
 
 describe('registration lobby', () => {
   it('prefills the human and assigns omitted preferences Blue-first', () => {

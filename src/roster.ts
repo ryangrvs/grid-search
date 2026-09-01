@@ -1,7 +1,17 @@
-import { randomUUID } from 'node:crypto';
-import { dirname } from 'node:path';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Lobby, LobbySeat, Player, Role, Team, RegistrationResult } from '../shared/types';
+
+function randomId(): string {
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi?.randomUUID) return cryptoApi.randomUUID();
+  if (cryptoApi?.getRandomValues) {
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 
 type Seat = LobbySeat & { handle: string | null };
 
@@ -17,7 +27,7 @@ export interface PersistedRoster {
   seats: Array<{ id: string; team: Team; role: Role; player: Player | null; handle: string | null }>;
 }
 
-/** Synchronous on-purpose: roster mutations are tiny and happen on one local server. */
+/** Synchronous on-purpose: roster mutations are tiny and happen in one page. */
 export interface RosterStore {
   load(): PersistedRoster | null;
   save(snapshot: PersistedRoster): void;
@@ -30,22 +40,27 @@ export class MemoryRosterStore implements RosterStore {
   save(snapshot: PersistedRoster): void { this.snapshot = cloneSnapshot(snapshot); }
 }
 
-/** Local-disk store used by the standalone server. It never sends roster data remotely. */
-export class FileRosterStore implements RosterStore {
-  constructor(private readonly filePath: string) {}
+/** Versioned browser persistence. It never sends roster data remotely. */
+export class LocalStorageRosterStore implements RosterStore {
+  static readonly key = 'semanticspy.roster.v1';
+
+  constructor(private readonly storage: Storage | undefined = browserStorage(), private readonly key = LocalStorageRosterStore.key) {}
+
   load(): PersistedRoster | null {
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(this.filePath, 'utf8'));
-      return isPersistedRoster(parsed) ? parsed : null;
-    } catch { return null; }
+    if (!this.storage) return null;
+    try { const raw = this.storage.getItem(this.key); return raw ? parseSnapshot(JSON.parse(raw)) : null; } catch { return null; }
   }
   save(snapshot: PersistedRoster): void {
-    mkdirSync(dirname(this.filePath), { recursive: true });
-    writeFileSync(this.filePath, `${JSON.stringify(snapshot)}\n`, { encoding: 'utf8', mode: 0o600 });
+    try { this.storage?.setItem(this.key, JSON.stringify(snapshot)); } catch { /* Private browsing or quota limits leave the game session-only. */ }
   }
 }
 
+function browserStorage(): Storage | undefined {
+  try { return globalThis.localStorage; } catch { return undefined; }
+}
+
 function cloneSnapshot(snapshot: PersistedRoster): PersistedRoster { return JSON.parse(JSON.stringify(snapshot)) as PersistedRoster; }
+function parseSnapshot(value: unknown): PersistedRoster | null { return isPersistedRoster(value) ? cloneSnapshot(value) : null; }
 function isRole(value: unknown): value is Role { return value === 'operative' || value === 'spymaster'; }
 function isTeam(value: unknown): value is Team { return value === 'blue' || value === 'red'; }
 function isPlayer(value: unknown): value is Player | null {
@@ -117,7 +132,7 @@ export class Roster {
     if (existing?.player) {
       // Recovery keeps the player and physical position stable while issuing a
       // new handle. The old handle is overwritten and therefore invalid.
-      existing.handle = randomUUID();
+      existing.handle = randomId();
       this.persist();
       return { success: true, player: { ...existing.player }, playerHandle: existing.handle, availableSeats: available(), lobby: this.view() };
     }
@@ -129,8 +144,8 @@ export class Roster {
       const detail = requested ? `The requested ${requested} seat is occupied` : 'The lobby is full';
       return { success: false, error: `${detail}. Choose an available seat.`, availableSeats: available(), lobby: this.view() };
     }
-    const player: Player = { id: randomUUID(), displayName: cleanName, controller: 'agent', team: seat.team, role: seat.role };
-    const handle = randomUUID();
+    const player: Player = { id: randomId(), displayName: cleanName, controller: 'agent', team: seat.team, role: seat.role };
+    const handle = randomId();
     seat.player = player;
     seat.handle = handle;
     this.persist();
@@ -143,7 +158,7 @@ export class Roster {
     const seats = seatPlan.map((seat, index) => ({
       ...seat,
       player: index === 0 ? {
-        id: randomUUID(), displayName: 'You', controller: 'human' as const, team: 'blue' as const, role: humanRole,
+        id: randomId(), displayName: 'You', controller: 'human' as const, team: 'blue' as const, role: humanRole,
       } : null,
       handle: null,
     }));

@@ -39,6 +39,16 @@ These are provisional button labels; they describe how many teams are participat
 
 Deferred ideas are kept in `docs/PLAN.md` rather than expanding this epic.
 
+## Local-only browser architecture
+
+> Decision: SemanticSpy is a static, local-only WebMCP application. It does not require a backend, serverless function, database, or cloud account.
+
+The human UI and imperative WebMCP tools share one browser-owned game controller. The roster, player handles, and restorable game state live in versioned browser `localStorage`.
+
+> Decision: WebMCP is the only agent integration. Remove the HTTP MCP server. Cross-device human multiplayer is not a requirement.
+
+Role-filtered tool responses remain part of the game rules, but hidden state is not a security boundary against the local human. A player who inspects browser memory may cheat; this is acceptable for a local agent-play experiment.
+
 ## No in-app wake-up or coordinator
 
 > Decision: Remove the current **Connection & Agent wake** UI and app-managed Codex wake behavior from the product direction.
@@ -108,7 +118,7 @@ Rules:
 - With no preference, assign the next open seat, Blue first.
 - A requested occupied seat returns a useful failure and the remaining seats.
 - Only registered handles can call player-scoped tools.
-- The server rejects a legal tool called by the wrong role or outside that player's turn.
+- The browser game controller rejects a legal tool called by the wrong role or outside that player's turn.
 - Registering again with the same display name reissues a new handle for that existing player and invalidates the previous handle.
 
 > Decision: Do not use invitation codes.
@@ -119,7 +129,7 @@ Rules:
 
 ### Persistence
 
-> Decision: Preserve registered players, positions, names, and handles through New Round, New Game, and page refresh. Store the roster locally. A fresh registration begins only after the roster storage is cleared.
+> Decision: Preserve registered players, positions, names, and handles through New Round, New Game, and page refresh. Store the roster in versioned browser `localStorage`. Clearing that storage starts a fresh registration lobby.
 
 New Round may switch roles but retains players. New Game changes the board but also retains players.
 

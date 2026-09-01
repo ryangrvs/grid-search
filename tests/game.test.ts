@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Game, WORDS } from '../server/game';
+import { Game, WORDS } from '../src/game';
 import type { Alignment } from '../shared/types';
 
 const fixedRandom = () => 0.5;

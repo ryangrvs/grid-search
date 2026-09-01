@@ -2,15 +2,11 @@
 
 import botIcon from './assets/bot.svg?raw';
 import userIcon from './assets/user.svg?raw';
-import type { Action, Board, Lobby, Role } from '../shared/types';
+import type { Action, Board, Lobby } from '../shared/types';
 import { actionTitle, cardPresentation } from './board-view';
+import { GameController } from './game-controller';
 import { registerWebMCP } from './webmcp';
 import './style.css';
-
-interface Bootstrap {
-  humanToken: string;
-  agentToken: string;
-}
 
 const root = document.querySelector<HTMLElement>('#app');
 
@@ -21,31 +17,10 @@ function inlineIcon(raw: string, label: string): string {
 const botIconMarkup = inlineIcon(botIcon, 'Agent');
 const userIconMarkup = inlineIcon(userIcon, 'You');
 
-async function jsonRequest<T>(path: string, token: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers);
-  headers.set('Authorization', `Bearer ${token}`);
-  if (init?.body) headers.set('Content-Type', 'application/json');
-  const response = await fetch(path, { ...init, headers });
-  let data: unknown;
-  try { data = await response.json(); } catch { throw new Error(`Server returned ${response.status} with invalid JSON`); }
-  if (!response.ok) {
-    const message = typeof data === 'object' && data && 'error' in data && typeof data.error === 'string'
-      ? data.error : `Request failed (${response.status})`;
-    throw new Error(message);
-  }
-  return data as T;
-}
-
-async function bootstrap(): Promise<Bootstrap> {
-  const response = await fetch('/api/bootstrap');
-  if (!response.ok) throw new Error(`Bootstrap failed (${response.status})`);
-  return response.json() as Promise<Bootstrap>;
-}
-
 class SemanticSpyApp {
+  private readonly controller: GameController;
   private board: Board | null = null;
   private lobby: Lobby | null = null;
-  private bootstrapData: Bootstrap | null = null;
   private lobbyOpen = false;
   private busy = false;
   private errorMessage = '';
@@ -54,16 +29,15 @@ class SemanticSpyApp {
   private allowRevealAnimation = false;
   private suppressNextRevealAnimation = false;
 
-  constructor(private readonly container: HTMLElement) {}
+  constructor(private readonly container: HTMLElement, controller = new GameController()) { this.controller = controller; }
 
   async start(): Promise<void> {
     try {
-      this.bootstrapData = await bootstrap();
       this.mountShell();
       await this.refreshHumanBoard();
       await this.refreshLobby();
       const registration = await registerWebMCP({
-        agentToken: this.bootstrapData.agentToken,
+        controller: this.controller,
         refreshHumanBoard: async () => { await this.refreshHumanBoard(); await this.refreshLobby(); },
       });
       this.mcpMessage = registration.supported
@@ -71,7 +45,7 @@ class SemanticSpyApp {
         : registration.reason || 'WebMCP unavailable in this browser.';
       window.setInterval(() => { void this.pollBoard(); void this.pollLobby(); }, 2500);
     } catch (error) {
-      this.errorMessage = error instanceof Error ? error.message : 'Could not connect to the local game.';
+      this.errorMessage = error instanceof Error ? error.message : 'Could not start the local game.';
       this.mountShell();
       this.render();
     }
@@ -133,8 +107,7 @@ class SemanticSpyApp {
   }
 
   private async refreshHumanBoard(): Promise<void> {
-    if (!this.bootstrapData) return;
-    const next = await jsonRequest<Board>('/api/board', this.bootstrapData.humanToken);
+    const next = this.controller.getBoard('human');
     const previous = this.board;
     const changed = !previous || previous.id !== next.id || previous.revision !== next.revision;
     if (!changed) return;
@@ -144,12 +117,12 @@ class SemanticSpyApp {
     this.board = next;
     this.errorMessage = '';
     if (newGame) this.previousRevealed.clear();
-    // Polling should not wipe a clue/guess draft while the server revision is unchanged.
+    // Local refreshes should not wipe a clue/guess draft while the revision is unchanged.
     this.render();
   }
 
   private async pollBoard(): Promise<void> {
-    if (this.busy || !this.bootstrapData) return;
+    if (this.busy) return;
     try { await this.refreshHumanBoard(); } catch (error) {
       this.errorMessage = error instanceof Error ? error.message : 'Board refresh failed';
       this.render();
@@ -157,13 +130,12 @@ class SemanticSpyApp {
   }
 
   private async refreshLobby(): Promise<void> {
-    if (!this.bootstrapData) return;
-    this.lobby = await jsonRequest<Lobby>('/api/lobby', this.bootstrapData.humanToken);
+    this.lobby = this.controller.lobby();
     this.renderLobby();
   }
 
   private async pollLobby(): Promise<void> {
-    if (this.busy || !this.bootstrapData) return;
+    if (this.busy) return;
     try { await this.refreshLobby(); } catch (error) {
       this.errorMessage = error instanceof Error ? error.message : 'Lobby refresh failed';
       this.render();
@@ -171,10 +143,10 @@ class SemanticSpyApp {
   }
 
   private async humanAction(action: Action): Promise<void> {
-    if (!this.bootstrapData || this.busy || !this.board || this.board.status !== 'playing') return;
+    if (this.busy || !this.board || this.board.status !== 'playing') return;
     this.busy = true; this.errorMessage = ''; this.render();
     try {
-      await jsonRequest<Board>('/api/action', this.bootstrapData.humanToken, { method: 'POST', body: JSON.stringify(action) });
+      this.controller.act('human', action);
       await this.refreshHumanBoard();
     } catch (error) {
       this.errorMessage = error instanceof Error ? error.message : 'Action failed';
@@ -196,21 +168,22 @@ class SemanticSpyApp {
     if (!this.lobby || (mode === 'co-op' && !this.lobby.canStartCoop) || (mode === 'versus' && !this.lobby.canStartVersus)) return;
     this.lobbyOpen = false;
     const roleSelect = this.container.querySelector<HTMLSelectElement>('#lobbyRoleSelect');
-    await this.resetGame('/api/new', `Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.', roleSelect?.value);
+    await this.resetGame(`Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.', roleSelect?.value);
   }
 
   private async nextRound(): Promise<void> {
-    await this.resetGame('/api/next-round', 'Next Round', 'Start a new key with the same 25 words? The current round will end.');
+    await this.resetGame('Next Round', 'Start a new key with the same 25 words? The current round will end.');
   }
 
-  private async resetGame(path: string, _label: string, confirmation: string, selectedRole?: string): Promise<void> {
-    if (!this.bootstrapData || this.busy) return;
+  private async resetGame(_label: string, confirmation: string, selectedRole?: string): Promise<void> {
+    if (this.busy) return;
     const role = (selectedRole ?? this.container.querySelector<HTMLSelectElement>('#roleSelect')?.value) === 'spymaster' ? 'spymaster' : 'operative';
     if (!window.confirm(confirmation)) return;
     this.busy = true;
     try {
       this.suppressNextRevealAnimation = true;
-      await jsonRequest<Board>(path, this.bootstrapData.humanToken, { method: 'POST', body: JSON.stringify({ humanRole: role }) });
+      if (_label === 'Next Round') this.controller.nextRound(role);
+      else this.controller.newGame(role);
       await this.refreshHumanBoard();
     } catch (error) { this.suppressNextRevealAnimation = false; this.errorMessage = error instanceof Error ? error.message : 'Could not start a new match.'; }
     finally { this.busy = false; this.render(); }
@@ -394,7 +367,7 @@ class SemanticSpyApp {
   private renderAction(): void {
     const body = this.container.querySelector<HTMLElement>('#actionBody'); if (!body) return;
     const board = this.board;
-    if (!board) { body.innerHTML = '<p class="hint">Connect to the local server to begin.</p>'; return; }
+    if (!board) { body.innerHTML = '<p class="hint">The local game board is not available yet.</p>'; return; }
     const actionVersion = `${board.id}:${board.revision}:${board.turn}:${board.phase}:${board.humanRole}`;
     const preserveGuess = body.dataset.actionVersion === actionVersion;
     const previousGuess = body.querySelector<HTMLInputElement>('#guess')?.value ?? '';

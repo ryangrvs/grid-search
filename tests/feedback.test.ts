@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Game } from '../server/game';
+import { Game } from '../src/game';
 
 describe('playtest feedback regressions', () => {
   it('ends a count-one clue after its first correct guess, even on the first round', () => {
