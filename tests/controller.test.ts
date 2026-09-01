@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GameController, MemoryStateStore, type PersistedState, type StateStore } from '../src/game-controller';
+import { GameController, LocalStorageStateStore, MemoryStateStore, type PersistedState, type StateStore } from '../src/game-controller';
 
 describe('browser GameController', () => {
   it('shares the role-filtered game and roster between human and agent callers', () => {
@@ -98,5 +98,19 @@ describe('browser GameController', () => {
     expect(saves).toHaveLength(2);
     expect(() => controller.act('human', { type: 'submit_clue', clue: 'Cosmic', count: 1 })).toThrow('not your turn');
     expect(saves).toHaveLength(2);
+  });
+
+  it('removes the obsolete roster-only key after writing the unified browser snapshot', () => {
+    const values = new Map([[LocalStorageStateStore.legacyRosterKey, '{"version":1}']]);
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    } as Storage;
+
+    new GameController({ stateStore: new LocalStorageStateStore(storage) });
+
+    expect(values.has(LocalStorageStateStore.key)).toBe(true);
+    expect(values.has(LocalStorageStateStore.legacyRosterKey)).toBe(false);
   });
 });

@@ -25,6 +25,7 @@ export class MemoryStateStore implements StateStore {
 /** Versioned browser adapter. Storage failures leave the current session in memory. */
 export class LocalStorageStateStore implements StateStore {
   static readonly key = 'semanticspy.state.v1';
+  static readonly legacyRosterKey = 'semanticspy.roster.v1';
 
   constructor(private readonly storage: Storage | undefined = browserStorage(), private readonly key = LocalStorageStateStore.key) {}
 
@@ -39,7 +40,10 @@ export class LocalStorageStateStore implements StateStore {
   }
 
   save(snapshot: PersistedState): void {
-    try { this.storage?.setItem(this.key, JSON.stringify(snapshot)); } catch { /* Private browsing or quota limits leave the session-only state active. */ }
+    try {
+      this.storage?.setItem(this.key, JSON.stringify(snapshot));
+      if (this.key === LocalStorageStateStore.key) this.storage?.removeItem(LocalStorageStateStore.legacyRosterKey);
+    } catch { /* Private browsing or quota limits leave the session-only state active. */ }
   }
 }
 
