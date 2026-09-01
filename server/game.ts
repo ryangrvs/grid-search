@@ -45,6 +45,7 @@ export class Game {
   private phase: Board['phase'];
   private status: Board['status'] = 'playing';
   private clue: Board['clue'] = null;
+  private turnGuesses: Board['turnGuesses'] = [];
   private guessesRemaining = 0;
   private blue = 0;
   private red = 0;
@@ -88,6 +89,7 @@ export class Game {
       phase: this.phase,
       status: this.status,
       clue: this.clue ? { ...this.clue } : null,
+      turnGuesses: this.turnGuesses.map((guess) => ({ ...guess })),
       guessesRemaining: this.guessesRemaining,
       scores: { blue: this.blue, red: this.red, blueTotal: 9, redTotal: 8 },
       log: this.log.map((entry) => ({ ...entry })),
@@ -109,6 +111,7 @@ export class Game {
       if (!clue || clue.length > 40 || !/^[A-Za-z]+$/.test(clue)) throw new GameError('Clue must be one word of 1–40 letters');
       if (this.cards.some((card) => card.word.toLowerCase() === clue.toLowerCase())) throw new GameError('Clue cannot be a board word');
       if (!Number.isInteger(action.count) || action.count < 1 || action.count > 9) throw new GameError('Clue count must be an integer from 1 to 9');
+      this.turnGuesses = [];
       this.clue = { word: clue, count: action.count };
       this.guessesRemaining = action.count;
       this.turn = actor === 'human' ? 'agent' : 'human';
@@ -131,6 +134,7 @@ export class Game {
       const word = typeof action.word === 'string' ? action.word.trim() : '';
       const card = this.cards.find((candidate) => candidate.word.toLowerCase() === word.toLowerCase());
       if (!card || card.revealed) throw new GameError('Choose an unrevealed board word');
+      this.turnGuesses.push({ actor, word: card.word });
       card.revealed = true;
       this.guessesRemaining -= 1;
       const guessSummary = `${actor === 'human' ? 'Human' : 'Agent'} guessed ${card.word}`;
@@ -141,6 +145,7 @@ export class Game {
         this.blue += 1;
         if (this.blue === 9) {
           this.status = 'won';
+          this.turnGuesses = [];
           this.lastAction = `${guessSummary}; blue team found every blue word`;
         } else if (this.guessesRemaining <= 0) {
           this.endTurn(actor, `${guessSummary}; guess limit reached`);
@@ -149,6 +154,7 @@ export class Game {
         if (card.alignment === 'red') this.red += 1;
         if (card.alignment === 'assassin') {
           this.status = 'lost';
+          this.turnGuesses = [];
           this.lastAction = `${guessSummary}; the assassin was revealed`;
         } else {
           this.endTurn(actor, `${guessSummary}; turn ended`);
@@ -185,6 +191,7 @@ export class Game {
     this.phase = 'clue';
     this.status = 'playing';
     this.clue = null;
+    this.turnGuesses = [];
     this.guessesRemaining = 0;
     this.blue = 0;
     this.red = 0;
@@ -220,6 +227,7 @@ export class Game {
     this.turn = actor === 'human' ? 'agent' : 'human';
     this.phase = 'clue';
     this.clue = null;
+    this.turnGuesses = [];
     this.guessesRemaining = 0;
     this.lastAction = summary ?? `${actor === 'human' ? 'Human' : 'Agent'} ended the turn`;
     this.addLog(this.lastAction);

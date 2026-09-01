@@ -12,6 +12,47 @@ describe('playtest feedback regressions', () => {
     expect(board.turn).toBe('agent');
   });
 
+  it('reports guesses in a continuing human operative turn, then clears at the limit', () => {
+    const game = new Game('operative');
+    const secret = game.getBoard('agent');
+    const blues = secret.cards.filter((card) => card.alignment === 'blue');
+    game.act('agent', { type: 'submit_clue', clue: 'Cosmic', count: 2 });
+
+    const first = game.act('human', { type: 'make_guess', word: blues[0].word });
+    expect(first.turnGuesses).toEqual([{ actor: 'human', word: blues[0].word }]);
+    expect(first.phase).toBe('guess');
+
+    const second = game.act('human', { type: 'make_guess', word: blues[1].word });
+    expect(second.turnGuesses).toEqual([]);
+    expect(second.phase).toBe('clue');
+  });
+
+  it('identifies the agent operative guess while its guessing turn continues', () => {
+    const game = new Game('spymaster');
+    const secret = game.getBoard('human');
+    const blue = secret.cards.find((card) => card.alignment === 'blue')!;
+    game.act('human', { type: 'submit_clue', clue: 'Cosmic', count: 2 });
+    const agentBoard = game.getBoard('agent');
+
+    const result = game.act('agent', { type: 'make_guess', word: blue.word });
+    expect(result.turnGuesses).toEqual([{ actor: 'agent', word: blue.word }]);
+    expect(agentBoard.turn).toBe('agent');
+    expect(result.phase).toBe('guess');
+  });
+
+  it('clears turn guesses when the operative explicitly ends the turn', () => {
+    const game = new Game('operative');
+    const secret = game.getBoard('agent');
+    const blue = secret.cards.find((card) => card.alignment === 'blue')!;
+    game.act('agent', { type: 'submit_clue', clue: 'Cosmic', count: 2 });
+    const guess = game.act('human', { type: 'make_guess', word: blue.word });
+    expect(guess.turnGuesses).toHaveLength(1);
+
+    const ended = game.act('human', { type: 'end_turn' });
+    expect(ended.turnGuesses).toEqual([]);
+    expect(ended.phase).toBe('clue');
+  });
+
   it('shows the unrevealed blue and red identities to the operative when the game ends', () => {
     const game = new Game('operative');
     const secret = game.getBoard('agent');

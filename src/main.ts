@@ -346,10 +346,17 @@ class SemanticSpyApp {
 
     const agentClue = this.container.querySelector<HTMLElement>('#agentClue');
     const humanClue = this.container.querySelector<HTMLElement>('#humanClue');
+    const activeGuess = board?.status === 'playing' && board.phase === 'guess' && board.clue
+      ? board.turnGuesses.filter((guess) => guess.actor === board.turn)
+      : [];
     if (agentClue) {
       agentClue.classList.remove('is-form');
       agentClue.replaceChildren();
-      if (board?.agentRole === 'spymaster' && board.clue) this.renderClueBubble(agentClue, board.clue.word, board.clue.count, board.status === 'playing' && board.phase === 'guess' ? 'Agent clue' : 'Previous clue');
+      if (board?.agentRole === 'spymaster' && board.clue) {
+        this.renderClueBubble(agentClue, board.clue.word, board.clue.count, board.status === 'playing' && board.phase === 'guess' ? 'Agent clue' : 'Previous clue');
+      } else if (board?.agentRole === 'operative' && board.turn === 'agent' && activeGuess.length && board.clue) {
+        this.renderGuessBubble(agentClue, activeGuess.at(-1)?.word ?? '', activeGuess.length, board.clue.count);
+      }
     }
     if (humanClue) {
       const calloutVersion = board ? `${board.id}:${board.revision}` : '';
@@ -363,23 +370,39 @@ class SemanticSpyApp {
         this.renderClueBubble(humanClue, board.clue.word, board.clue.count, board.status === 'playing' && board.phase === 'guess' ? 'Your clue' : 'Previous clue');
       } else if (board?.humanRole === 'spymaster' && board.status === 'playing' && board.turn === 'human' && board.phase === 'clue') {
         this.renderHumanClueForm(humanClue, previousClue, previousCount);
+      } else if (board?.humanRole === 'operative' && board.turn === 'human' && activeGuess.length && board.clue) {
+        this.renderGuessBubble(humanClue, activeGuess.at(-1)?.word ?? '', activeGuess.length, board.clue.count);
       }
     }
   }
 
   private renderClueBubble(target: HTMLElement, word: string, count: number, label: string): void {
-    const wordBubble = document.createElement('span'); wordBubble.className = 'clue-word-bubble';
+    const bubble = document.createElement('div'); bubble.className = 'speech-bubble clue-bubble';
     const kicker = document.createElement('span'); kicker.className = 'clue-kicker'; kicker.textContent = label;
-    const wordNode = document.createElement('strong'); wordNode.className = 'clue-word'; wordNode.textContent = word;
-    wordBubble.append(kicker, wordNode);
+    const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word;
+    const divider = document.createElement('span'); divider.className = 'bubble-divider'; divider.setAttribute('aria-hidden', 'true'); divider.textContent = '—';
     const countNode = document.createElement('span'); countNode.className = 'clue-count'; countNode.textContent = String(count);
+    bubble.setAttribute('role', 'status');
+    bubble.setAttribute('aria-label', `${label}: ${word}, clue count ${count}`);
     countNode.setAttribute('aria-label', `Clue count ${count}`);
-    target.append(wordBubble, countNode);
+    bubble.append(kicker, wordNode, divider, countNode);
+    target.append(bubble);
+  }
+
+  private renderGuessBubble(target: HTMLElement, word: string, progress: number, total: number): void {
+    const bubble = document.createElement('div'); bubble.className = 'speech-bubble guess-bubble';
+    const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word;
+    const divider = document.createElement('span'); divider.className = 'bubble-divider'; divider.setAttribute('aria-hidden', 'true'); divider.textContent = '—';
+    const progressNode = document.createElement('span'); progressNode.className = 'clue-count guess-progress'; progressNode.textContent = `${progress}/${total}`;
+    bubble.setAttribute('role', 'status');
+    bubble.setAttribute('aria-label', `${word}, guess ${progress} of ${total}`);
+    bubble.append(wordNode, divider, progressNode);
+    target.append(bubble);
   }
 
   private renderHumanClueForm(target: HTMLElement, draft = '', countDraft = '1'): void {
     target.classList.add('is-form');
-    const form = document.createElement('form'); form.id = 'clueForm'; form.className = 'clue-form';
+    const form = document.createElement('form'); form.id = 'clueForm'; form.className = 'clue-form speech-bubble clue-bubble';
     const wordBubble = document.createElement('span'); wordBubble.className = 'clue-word-bubble clue-word-entry';
     const clueLabelNode = document.createElement('label'); clueLabelNode.className = 'sr-only'; clueLabelNode.htmlFor = 'clue'; clueLabelNode.textContent = 'Clue word';
     const clue = document.createElement('input'); clue.id = 'clue'; clue.name = 'clue'; clue.maxLength = 40; clue.autocomplete = 'off'; clue.placeholder = 'One word'; clue.value = draft;
@@ -387,9 +410,11 @@ class SemanticSpyApp {
     const countBubble = document.createElement('label'); countBubble.className = 'clue-count clue-count-entry'; countBubble.htmlFor = 'count'; countBubble.setAttribute('aria-label', 'Clue count');
     const count = document.createElement('input'); count.id = 'count'; count.name = 'count'; count.type = 'number'; count.min = '1'; count.max = '9'; count.inputMode = 'numeric'; count.value = countDraft || '1'; count.setAttribute('aria-label', 'Clue count');
     countBubble.append(count);
+    const divider = document.createElement('span'); divider.className = 'bubble-divider'; divider.setAttribute('aria-hidden', 'true'); divider.textContent = '—';
     const submit = document.createElement('button'); submit.className = 'clue-submit'; submit.type = 'submit'; submit.textContent = 'Send';
     clue.disabled = this.busy; count.disabled = this.busy; submit.disabled = this.busy;
-    form.append(wordBubble, countBubble, submit);
+    form.setAttribute('role', 'group'); form.setAttribute('aria-label', 'Enter clue and count');
+    form.append(wordBubble, divider, countBubble, submit);
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = clue.value.trim(); const number = Number(count.value);

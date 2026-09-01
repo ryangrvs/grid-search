@@ -18,6 +18,7 @@ export interface Board {
   phase: 'clue' | 'guess';
   status: 'playing' | 'won' | 'lost';
   clue: { word: string; count: number } | null;
+  turnGuesses: Array<{ actor: Actor; word: string }>;
   guessesRemaining: number;
   scores: { blue: number; red: number; blueTotal: number; redTotal: number };
   log: Array<{ id: number; text: string }>;
