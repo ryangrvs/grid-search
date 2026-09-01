@@ -64,10 +64,12 @@ class SemanticSpyApp {
                 <article class="player-slot player-left" data-seat-id="blue-top-left"></article>
                 <article class="player-slot player-right" data-seat-id="blue-top-right"></article>
               </div>
-              <div id="boardGrid" class="board-grid" aria-label="SemanticSpy word cards"></div>
-              <div class="scorebar" aria-label="Team progress">
-                <div id="blueSquares" class="score-squares score-squares-blue" aria-label="Blue team progress"></div>
-                <div id="redSquares" class="score-squares score-squares-red" aria-label="Red team progress"></div>
+              <div class="board-stage">
+                <div id="boardGrid" class="board-grid" aria-label="SemanticSpy word cards"></div>
+                <div class="scorebar" aria-label="Team progress">
+                  <div id="blueSquares" class="score-squares score-squares-blue" aria-label="Blue team progress"></div>
+                  <div id="redSquares" class="score-squares score-squares-red" aria-label="Red team progress"></div>
+                </div>
               </div>
               <div class="participants-row participants-bottom" aria-label="Red team players">
                 <article class="player-slot player-left" data-seat-id="red-bottom-left"></article>
@@ -254,7 +256,7 @@ class SemanticSpyApp {
 
     const copy = document.createElement('div'); copy.className = 'player-copy';
     const name = document.createElement('strong'); name.className = 'player-name'; name.textContent = player?.displayName ?? 'Open seat';
-    const role = document.createElement('span'); role.className = 'player-role'; role.textContent = `${seat.team} · ${seat.role}`;
+    const role = document.createElement('span'); role.className = 'player-role'; role.textContent = seat.role;
     copy.append(name, role);
     const interaction = document.createElement('div'); interaction.className = 'player-interaction';
     const avatar = document.createElement('div'); avatar.className = `avatar ${player?.controller === 'human' ? 'avatar-human' : 'avatar-agent'}`;
@@ -408,7 +410,7 @@ class SemanticSpyApp {
       card.className = `lobby-card team-${seat.team}${seat.player ? '' : ' is-open'}`;
       const icon = document.createElement('div'); icon.className = 'lobby-avatar'; icon.innerHTML = seat.player?.controller === 'human' ? userIconMarkup : botIconMarkup;
       const name = document.createElement('strong'); name.textContent = seat.player?.displayName ?? 'Open seat';
-      const role = document.createElement('span'); role.textContent = `${seat.team} · ${seat.player?.role ?? seat.role}`;
+      const role = document.createElement('span'); role.textContent = seat.player?.role ?? seat.role;
       card.append(icon, name, role);
       grid.append(card);
     }
