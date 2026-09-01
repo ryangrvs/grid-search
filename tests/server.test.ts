@@ -11,7 +11,7 @@ describe('local HTTP and MCP integration', () => {
   let app: ReturnType<typeof createApp>;
   let base: string;
   beforeEach(async () => {
-    app = createApp({ game: new Game('operative'), threadId: 'test-thread' });
+    app = createApp({ game: new Game('operative') });
     await new Promise<void>((resolve, reject) => {
       app.server.once('error', reject);
       app.server.listen(0, '127.0.0.1', resolve);
@@ -31,9 +31,8 @@ describe('local HTTP and MCP integration', () => {
       body: data === undefined ? undefined : JSON.stringify(data),
     });
   }
-  it('bootstraps the thread without exposing hidden alignments to the human', async () => {
+  it('bootstraps game capabilities without exposing hidden alignments to the human', async () => {
     const bootstrap = await (await request('/api/bootstrap')).json();
-    expect(bootstrap.threadId).toBe('test-thread');
     expect(bootstrap.humanToken).not.toBe(bootstrap.agentToken);
     const board: Board = await (await request('/api/board', 'human')).json();
     expect(board.cards).toHaveLength(25);

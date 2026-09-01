@@ -26,7 +26,7 @@ async function body(request: IncomingMessage): Promise<unknown> {
   try { return JSON.parse(Buffer.concat(parts).toString()); } catch { throw new Error('Invalid JSON'); }
 }
 
-export function createApp(options: { game?: Game; threadId?: string; distDir?: string } = {}) {
+export function createApp(options: { game?: Game; distDir?: string } = {}) {
   const game = options.game ?? new Game('operative');
   const tokens = { human: randomBytes(32).toString('base64url'), agent: randomBytes(32).toString('base64url') };
   const distDir = resolve(options.distDir ?? 'dist');
@@ -48,7 +48,7 @@ export function createApp(options: { game?: Game; threadId?: string; distDir?: s
       const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
       const method = request.method;
       if (path === '/api/bootstrap' && method === 'GET') {
-        json(response, 200, { humanToken: tokens.human, agentToken: tokens.agent, threadId: options.threadId ?? null, wsUrl: 'ws://127.0.0.1:4500' }); return;
+        json(response, 200, { humanToken: tokens.human, agentToken: tokens.agent }); return;
       }
       if (path === '/api/schemas' && method === 'GET') { json(response, 200, schemas); return; }
       if (path === '/api/health' && method === 'GET') { json(response, 200, { ok: true }); return; }
