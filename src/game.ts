@@ -1,4 +1,4 @@
-import type { Action, Actor, Alignment, Board, Card, MatchMode, MatchModeInput, Player, Role, Team } from '../shared/types';
+import type { Action, Actor, Alignment, Board, Card, GameLogEntry, MatchMode, MatchModeInput, Player, Role, Team } from '../shared/types';
 
 export type IdFactory = () => string;
 
@@ -77,7 +77,7 @@ export interface PersistedGame {
   scores: Board['scores'];
   turnNumber: number;
   teamTurnCounts: Board['teamTurnCounts'];
-  log: Board['log'];
+  log: Array<{ id: number; text: string; team?: Team }>;
   lastAction: string;
 }
 
@@ -107,7 +107,7 @@ export class Game {
   private red = 0;
   private turnNumber = 0;
   private teamTurnCounts = { blue: 0, red: 0 };
-  private log: Array<{ id: number; text: string }> = [];
+  private log: GameLogEntry[] = [];
   private lastAction = 'Match started';
   private agentReads = new Map<string, number>();
   private readonly random: () => number;
@@ -218,7 +218,10 @@ export class Game {
     this.red = snapshot.scores.red;
     this.turnNumber = snapshot.turnNumber;
     this.teamTurnCounts = { ...snapshot.teamTurnCounts };
-    this.log = snapshot.log.map((entry) => ({ ...entry }));
+    this.log = snapshot.log.map((entry) => ({
+      ...entry,
+      team: entry.team ?? this.players.find((player) => entry.text.startsWith(player.displayName))?.team ?? 'blue',
+    }));
     this.lastAction = snapshot.lastAction;
     this.agentReads.clear();
   }
@@ -280,13 +283,16 @@ export class Game {
       this.turnNumber += 1;
       this.teamTurnCounts[actor.team] += 1;
       this.lastAction = `${actor.displayName} gave clue “${clue}” (${action.count})`;
-      this.addLog(this.lastAction);
+      this.addLog(this.lastAction, actor.team);
       this.bumpRevision();
       return this.view(actor);
     }
     if (action.type === 'end_turn') {
       if (actor.role !== 'operative' || this.phase !== 'guess') throw new GameError('Only the operative can end a guessing turn');
-      this.finishTurn(actor, `${actor.displayName} ended the turn`); this.bumpRevision(); return this.view(actor);
+      this.finishTurn(actor);
+      this.lastAction = `${actor.displayName} ended the turn`;
+      this.addLog(this.lastAction, actor.team);
+      this.bumpRevision(); return this.view(actor);
     }
     if (action.type === 'make_guess') {
       if (actor.role !== 'operative' || this.phase !== 'guess') throw new GameError('Only the operative can guess now');
@@ -297,8 +303,6 @@ export class Game {
       card.revealed = true;
       this.guessesRemaining -= 1;
       const summary = `${actor.displayName} guessed ${card.word}`;
-      this.lastAction = summary;
-      this.addLog(summary);
       if (card.alignment === 'blue') {
         this.blue += 1;
       } else if (card.alignment === 'red') {
@@ -315,8 +319,10 @@ export class Game {
         this.turnGuesses = [];
         this.lastAction = `${summary}; ${this.winner} team found every word`;
       } else if (card.alignment !== actor.team || this.guessesRemaining <= 0) {
-        this.finishTurn(actor, `${summary}; ${this.guessesRemaining <= 0 ? 'guess limit reached' : 'turn ended'}`);
-      }
+        this.lastAction = `${summary}; ${this.guessesRemaining <= 0 ? 'guess limit reached' : 'turn ended'}`;
+        this.finishTurn(actor);
+      } else this.lastAction = summary;
+      this.addLog(this.lastAction, actor.team);
       this.bumpRevision(); return this.view(actor);
     }
     throw new GameError('Unknown action');
@@ -367,14 +373,12 @@ export class Game {
     });
   }
 
-  private finishTurn(actor: Player, summary: string): void {
+  private finishTurn(actor: Player): void {
     this.activePlayerId = this.nextSpymaster(actor.team).id;
     this.phase = 'clue';
     this.clue = null;
     this.turnGuesses = [];
     this.guessesRemaining = 0;
-    this.lastAction = summary;
-    this.addLog(summary);
   }
 
   private nextSpymaster(team: Team): Player {
@@ -413,7 +417,7 @@ export class Game {
     };
     return this.player(viewer);
   }
-  private addLog(text: string): void { this.log.push({ id: this.log.length + 1, text }); }
+  private addLog(text: string, team: Team): void { this.log.push({ id: this.log.length + 1, text, team }); }
   private bumpRevision(): void { this.revision += 1; this.agentReads.clear(); }
   private initializeCards(selectedWords?: string[], exclude = new Set<string>()): void {
     const available = WORDS.filter((word) => !exclude.has(word));
@@ -564,7 +568,8 @@ function isPersistedGame(value: unknown): value is PersistedGame {
   if (!candidate.log.every((entry): boolean => {
     if (!entry || typeof entry !== 'object') return false;
     const item = entry as Record<string, unknown>;
-    return Number.isInteger(item.id) && (item.id as number) > 0 && typeof item.text === 'string';
+    return Number.isInteger(item.id) && (item.id as number) > 0 && typeof item.text === 'string'
+      && (item.team === undefined || item.team === 'blue' || item.team === 'red');
   })) return false;
   const guessesRemaining = candidate.guessesRemaining as number;
   if ((candidate.phase === 'clue' && (guessesRemaining !== 0 || candidate.turnGuesses.length !== 0))

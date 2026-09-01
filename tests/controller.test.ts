@@ -38,6 +38,20 @@ describe('browser GameController', () => {
     expect(restored.view('human').revision).toBe(0);
   });
 
+  it('switches both teams roles for Next Round without moving registered players', () => {
+    const controller = new GameController({ stateStore: new MemoryStateStore() });
+    controller.register('Blue Spy', 'blue', 'spymaster');
+    controller.register('Red Op', 'red', 'operative');
+    controller.register('Red Spy', 'red', 'spymaster');
+    const before = controller.lobby().seats.map((seat) => seat.player?.id);
+
+    const board = controller.nextRound('spymaster');
+
+    expect(board.humanRole).toBe('spymaster');
+    expect(controller.lobby().seats.map((seat) => seat.player?.id)).toEqual(before);
+    expect(controller.lobby().seats.map((seat) => seat.role)).toEqual(['spymaster', 'operative', 'spymaster', 'operative']);
+  });
+
   it('rejects changing roles during an active round but aligns roles for New Game', () => {
     const controller = new GameController({ stateStore: new MemoryStateStore() });
     expect(() => controller.setHumanRole('spymaster')).toThrow('active');

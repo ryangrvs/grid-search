@@ -122,9 +122,6 @@ export class GameController {
   }
 
   nextRound(role: Role = this.roster.humanRole): Board {
-    if (this.game.view('human').status === 'playing' && role !== this.roster.humanRole) {
-      throw new Error('Human role cannot change during an active clue/guess turn');
-    }
     const board = this.game.startRound(this.game.snapshot().mode, this.roster.players(), role, true, false);
     this.roster.setHumanRole(role);
     this.persist();

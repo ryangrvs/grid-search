@@ -10,6 +10,10 @@ describe('playtest feedback regressions', () => {
     expect(board.guessesRemaining).toBe(0);
     expect(board.phase).toBe('clue');
     expect(board.turn).toBe('agent');
+    expect(board.log).toEqual([
+      expect.objectContaining({ team: 'blue', text: expect.stringContaining('gave clue') }),
+      expect.objectContaining({ team: 'blue', text: expect.stringContaining('guess limit reached') }),
+    ]);
   });
 
   it('reports guesses in a continuing human operative turn, then clears at the limit', () => {

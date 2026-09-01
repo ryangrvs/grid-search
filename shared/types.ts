@@ -14,6 +14,12 @@ export interface Player {
   role: Role;
 }
 
+export interface GameLogEntry {
+  id: number;
+  text: string;
+  team: Team;
+}
+
 export interface LobbySeat {
   id: string;
   team: Team;
@@ -62,7 +68,7 @@ export interface Board {
   scores: { blue: number; red: number; blueTotal: number; redTotal: number };
   turnNumber: number;
   teamTurnCounts: { blue: number; red: number };
-  log: Array<{ id: number; text: string }>;
+  log: GameLogEntry[];
   lastAction: string;
 }
 
