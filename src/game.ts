@@ -49,6 +49,22 @@ export class GameError extends Error {
 
 type InternalCard = { word: string; revealed: boolean; alignment: Alignment };
 
+export interface PersistedGame {
+  id: string;
+  revision: number;
+  cards: InternalCard[];
+  humanRole: Role;
+  turn: Actor;
+  phase: Board['phase'];
+  status: Board['status'];
+  clue: Board['clue'];
+  turnGuesses: Board['turnGuesses'];
+  guessesRemaining: number;
+  scores: Board['scores'];
+  log: Board['log'];
+  lastAction: string;
+}
+
 /** The authoritative, browser-owned game. State is intentionally in memory. */
 export class Game {
   private gameId: string;
@@ -110,6 +126,56 @@ export class Game {
       log: this.log.map((entry) => ({ ...entry })),
       lastAction: this.lastAction,
     };
+  }
+
+  /** Return the complete authoritative game state, including the hidden key. */
+  snapshot(): PersistedGame {
+    return {
+      id: this.gameId,
+      revision: this.revision,
+      cards: this.cards.map((card) => ({ ...card })),
+      humanRole: this.humanRole,
+      turn: this.turn,
+      phase: this.phase,
+      status: this.status,
+      clue: this.clue ? { ...this.clue } : null,
+      turnGuesses: this.turnGuesses.map((guess) => ({ ...guess })),
+      guessesRemaining: this.guessesRemaining,
+      scores: { blue: this.blue, red: this.red, blueTotal: 9, redTotal: 8 },
+      log: this.log.map((entry) => ({ ...entry })),
+      lastAction: this.lastAction,
+    };
+  }
+
+  /** Restore only validated state; persistence and storage remain controller concerns. */
+  restore(snapshot: unknown): void {
+    if (!isPersistedGame(snapshot)) throw new GameError('Invalid game snapshot');
+    this.gameId = snapshot.id;
+    this.revision = snapshot.revision;
+    this.cards = snapshot.cards.map((card) => ({ ...card }));
+    this.humanRole = snapshot.humanRole;
+    this.turn = snapshot.turn;
+    this.phase = snapshot.phase;
+    this.status = snapshot.status;
+    this.clue = snapshot.clue ? { ...snapshot.clue } : null;
+    this.turnGuesses = snapshot.turnGuesses.map((guess) => ({ ...guess }));
+    this.guessesRemaining = snapshot.guessesRemaining;
+    this.blue = snapshot.scores.blue;
+    this.red = snapshot.scores.red;
+    this.log = snapshot.log.map((entry) => ({ ...entry }));
+    this.lastAction = snapshot.lastAction;
+    // Fresh-read authorization is deliberately transient and never restored.
+    this.agentReadRevision = null;
+  }
+
+  /** Align the role labels for a non-active round without dealing a board. */
+  setHumanRole(role: Role): Board {
+    if (!isRole(role)) throw new GameError('Invalid human role');
+    if (this.status === 'playing' && role !== this.humanRole) {
+      throw new GameError('Human role cannot change during an active clue/guess turn');
+    }
+    this.humanRole = role;
+    return this.view('human');
   }
 
   act(actor: Actor, action: Action): Board {
@@ -257,3 +323,75 @@ export class Game {
 }
 
 export { WORDS };
+
+function isAlignment(value: unknown): value is Alignment {
+  return value === 'blue' || value === 'red' || value === 'innocent' || value === 'assassin';
+}
+
+function isRole(value: unknown): value is Role { return value === 'operative' || value === 'spymaster'; }
+function isActor(value: unknown): value is Actor { return value === 'human' || value === 'agent'; }
+function isPhase(value: unknown): value is Board['phase'] { return value === 'clue' || value === 'guess'; }
+function isStatus(value: unknown): value is Board['status'] { return value === 'playing' || value === 'won' || value === 'lost'; }
+
+function isPersistedGame(value: unknown): value is PersistedGame {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.id !== 'string' || !candidate.id || !Number.isInteger(candidate.revision) || (candidate.revision as number) < 0
+    || !isRole(candidate.humanRole) || !isActor(candidate.turn) || !isPhase(candidate.phase) || !isStatus(candidate.status)
+    || !Array.isArray(candidate.cards) || candidate.cards.length !== 25 || !Array.isArray(candidate.turnGuesses)
+    || !Array.isArray(candidate.log) || typeof candidate.lastAction !== 'string' || !Number.isInteger(candidate.guessesRemaining)
+    || !candidate.scores || typeof candidate.scores !== 'object') return false;
+
+  const words = new Set<string>();
+  const counts: Record<Alignment, number> = { blue: 0, red: 0, innocent: 0, assassin: 0 };
+  for (const card of candidate.cards) {
+    if (!card || typeof card !== 'object') return false;
+    const item = card as Record<string, unknown>;
+    if (typeof item.word !== 'string' || !WORDS.includes(item.word) || words.has(item.word)
+      || typeof item.revealed !== 'boolean' || !isAlignment(item.alignment)) return false;
+    words.add(item.word);
+    counts[item.alignment] += 1;
+  }
+  if (counts.blue !== 9 || counts.red !== 8 || counts.innocent !== 7 || counts.assassin !== 1) return false;
+
+  const scores = candidate.scores as Record<string, unknown>;
+  if (scores.blueTotal !== 9 || scores.redTotal !== 8 || !Number.isInteger(scores.blue) || !Number.isInteger(scores.red)
+    || (scores.blue as number) < 0 || (scores.blue as number) > 9 || (scores.red as number) < 0 || (scores.red as number) > 8) return false;
+  const revealedBlue = candidate.cards.filter((card) => (card as Record<string, unknown>).revealed && (card as Record<string, unknown>).alignment === 'blue').length;
+  const revealedRed = candidate.cards.filter((card) => (card as Record<string, unknown>).revealed && (card as Record<string, unknown>).alignment === 'red').length;
+  if (scores.blue !== revealedBlue || scores.red !== revealedRed) return false;
+
+  if (candidate.clue !== null) {
+    if (!candidate.clue || typeof candidate.clue !== 'object') return false;
+    const clue = candidate.clue as Record<string, unknown>;
+    if (typeof clue.word !== 'string') return false;
+    const clueWord = clue.word;
+    if (!/^[A-Za-z]+$/.test(clueWord) || clueWord.length > 40
+      || WORDS.some((word) => word.toLowerCase() === clueWord.toLowerCase())
+      || !Number.isInteger(clue.count) || (clue.count as number) < 1 || (clue.count as number) > 9) return false;
+  }
+  if (!candidate.turnGuesses.every((guess): boolean => {
+    if (!guess || typeof guess !== 'object') return false;
+    const item = guess as Record<string, unknown>;
+    return isActor(item.actor) && typeof item.word === 'string' && words.has(item.word);
+  })) return false;
+  const revealedWords = new Set(candidate.cards
+    .filter((card) => (card as Record<string, unknown>).revealed)
+    .map((card) => (card as Record<string, unknown>).word as string));
+  if (!candidate.turnGuesses.every((guess) => revealedWords.has((guess as Record<string, unknown>).word as string))) return false;
+  if (!candidate.log.every((entry): boolean => {
+    if (!entry || typeof entry !== 'object') return false;
+    const item = entry as Record<string, unknown>;
+    return Number.isInteger(item.id) && (item.id as number) > 0 && typeof item.text === 'string';
+  })) return false;
+  const guessesRemaining = candidate.guessesRemaining as number;
+  if ((candidate.phase === 'clue' && (guessesRemaining !== 0 || candidate.turnGuesses.length !== 0))
+    || guessesRemaining < 0 || guessesRemaining > 9) return false;
+  if (candidate.status === 'playing' && candidate.phase === 'clue' && candidate.clue !== null) return false;
+  if (candidate.status === 'playing' && candidate.phase === 'guess') {
+    const clueCount = candidate.clue && typeof candidate.clue === 'object'
+      ? (candidate.clue as Record<string, unknown>).count as number : null;
+    if (clueCount === null || guessesRemaining !== clueCount - candidate.turnGuesses.length) return false;
+  }
+  return true;
+}

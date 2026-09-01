@@ -14,13 +14,14 @@ Work in dependency order unless an issue explicitly says it can overlap.
 | [002](issues/issue-002-registration-poc.md) | 2×2 lobby and multi-agent `register` POC | Complete | 001 |
 | [003](issues/issue-003-persistent-roster.md) | Persistent players, handles, and role switching | Complete | 002 |
 | [000](issues/issue-000-local-only-browser-runtime.md) | Remove the backend and move to a local-only browser runtime | Complete | 003 |
-| [004](issues/issue-004-multiplayer-domain.md) | One-engine Blue-only and Blue-vs-Red rules | Planned | 000 |
+| [000A](issues/issue-000a-persist-browser-game-state.md) | Persist one coherent browser game snapshot | Complete | 000 |
+| [004](issues/issue-004-multiplayer-domain.md) | One-engine Blue-only and Blue-vs-Red rules | Planned | 000A |
 | [005](issues/issue-005-webmcp-tooling.md) | `get_context`, `get_state`, and player-scoped actions | Planned | 003, 004 |
 | [006](issues/issue-006-four-player-ui.md) | Four-player board layout and turn presentation | Planned | 003, 004 |
 | [007](issues/issue-007-education-outcomes.md) | How to Play, turn counter, and finish modal | Planned | 004, 006 |
 | [008](issues/issue-008-live-verification.md) | Lightweight checks and complete multi-agent match | Planned | 005, 006, 007 |
 
-Issue 000 is an architectural correction inserted after the registration and persistence spikes. Complete it before deepening the multiplayer domain or WebMCP tool contracts. Issues 005 and 006 may proceed in parallel after Issue 004 is integrated because their primary file ownership differs. For now, coordinate subagents in the shared checkout rather than creating worktrees.
+Issues 000 and 000A are architectural corrections inserted after the registration and persistence spikes. Complete both before deepening the multiplayer domain or WebMCP tool contracts. Issues 005 and 006 may proceed in parallel after Issue 004 is integrated because their primary file ownership differs. For now, coordinate subagents in the shared checkout rather than creating worktrees.
 
 ## If time
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MemoryRosterStore, Roster } from '../src/roster';
+import { Roster } from '../src/roster';
 
 describe('registration lobby', () => {
   it('prefills the human and assigns omitted preferences Blue-first', () => {
@@ -50,14 +50,14 @@ describe('registration lobby', () => {
     expect(roster.view().seats[1].player?.displayName).toBe('Atlas');
   });
 
-  it('persists positions, identities, roles, and handles in a local store', () => {
-    const store = new MemoryRosterStore();
-    const original = new Roster('operative', store);
+  it('round-trips positions, identities, roles, and handles through a snapshot', () => {
+    const original = new Roster('operative');
     const registration = original.register('Atlas');
     original.register('Nova', 'red', 'operative');
     original.setHumanRole('spymaster');
 
-    const restored = new Roster('operative', store);
+    const restored = new Roster('operative');
+    restored.restore(original.snapshot());
     expect(restored.view().seats.map((seat) => seat.id)).toEqual(original.view().seats.map((seat) => seat.id));
     expect(restored.view().seats.map((seat) => seat.player?.displayName)).toEqual(['You', 'Atlas', 'Nova', undefined]);
     expect(restored.view().seats.map((seat) => seat.player?.role)).toEqual(['spymaster', 'operative', 'spymaster', undefined]);

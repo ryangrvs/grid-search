@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GameController } from '../src/game-controller';
+import { GameController, MemoryStateStore } from '../src/game-controller';
 import { BOARD_URI, registerWebMCP, type ModelContext } from '../src/webmcp';
-import { MemoryRosterStore } from '../src/roster';
 
 describe('browser WebMCP adapter', () => {
   it('feature-detects unsupported browsers without any network dependency', async () => {
-    const controller = new GameController({ rosterStore: new MemoryRosterStore() });
+    const controller = new GameController({ stateStore: new MemoryStateStore() });
     const result = await registerWebMCP({ controller, host: undefined });
     expect(result.supported).toBe(false);
     expect(result.registered).toEqual([]);
@@ -14,7 +13,7 @@ describe('browser WebMCP adapter', () => {
   it('registers strict tools against the same controller and requires a fresh read', async () => {
     const registered: Record<string, { execute: (args: Record<string, unknown>) => Promise<unknown>; inputSchema: unknown }> = {};
     const registerTool = vi.fn(async (tool: Parameters<ModelContext['registerTool']>[0]) => { registered[tool.name] = tool; });
-    const controller = new GameController({ rosterStore: new MemoryRosterStore() });
+    const controller = new GameController({ stateStore: new MemoryStateStore() });
     const result = await registerWebMCP({ controller, host: { registerTool } });
     expect(result).toMatchObject({ supported: true, registered: ['get_board', 'submit_clue', 'make_guess', 'end_turn', 'register'] });
     expect(registerTool).toHaveBeenCalledTimes(5);
@@ -30,7 +29,7 @@ describe('browser WebMCP adapter', () => {
 
   it('rejects unknown arguments before mutating the game', async () => {
     const registered: Record<string, { execute: (args: Record<string, unknown>) => Promise<unknown> }> = {};
-    const controller = new GameController({ rosterStore: new MemoryRosterStore() });
+    const controller = new GameController({ stateStore: new MemoryStateStore() });
     await registerWebMCP({ controller, host: { registerTool: async (tool) => { registered[tool.name] = tool; } } });
     await expect(registered.make_guess.execute({ word: 'ORBIT', secret: true })).rejects.toThrow('exactly');
     expect(controller.view('human').revision).toBe(0);
@@ -38,7 +37,7 @@ describe('browser WebMCP adapter', () => {
 
   it('shares registration and recovery with the UI controller', async () => {
     const registered: Record<string, { execute: (args: Record<string, unknown>) => Promise<any> }> = {};
-    const controller = new GameController({ rosterStore: new MemoryRosterStore() });
+    const controller = new GameController({ stateStore: new MemoryStateStore() });
     await registerWebMCP({ controller, host: { registerTool: async (tool) => { registered[tool.name] = tool; } } });
     const first = await registered.register.execute({ name: 'Atlas' });
     const second = await registered.register.execute({ name: 'atlas' });

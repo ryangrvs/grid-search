@@ -23,44 +23,9 @@ const seatPlan: Array<{ id: string; team: Team; role: Role }> = [
 ];
 
 export interface PersistedRoster {
-  version: 1;
   seats: Array<{ id: string; team: Team; role: Role; player: Player | null; handle: string | null }>;
 }
 
-/** Synchronous on-purpose: roster mutations are tiny and happen in one page. */
-export interface RosterStore {
-  load(): PersistedRoster | null;
-  save(snapshot: PersistedRoster): void;
-}
-
-/** Default store for tests and embedders; the owning app keeps it for its lifetime. */
-export class MemoryRosterStore implements RosterStore {
-  private snapshot: PersistedRoster | null = null;
-  load(): PersistedRoster | null { return this.snapshot ? cloneSnapshot(this.snapshot) : null; }
-  save(snapshot: PersistedRoster): void { this.snapshot = cloneSnapshot(snapshot); }
-}
-
-/** Versioned browser persistence. It never sends roster data remotely. */
-export class LocalStorageRosterStore implements RosterStore {
-  static readonly key = 'semanticspy.roster.v1';
-
-  constructor(private readonly storage: Storage | undefined = browserStorage(), private readonly key = LocalStorageRosterStore.key) {}
-
-  load(): PersistedRoster | null {
-    if (!this.storage) return null;
-    try { const raw = this.storage.getItem(this.key); return raw ? parseSnapshot(JSON.parse(raw)) : null; } catch { return null; }
-  }
-  save(snapshot: PersistedRoster): void {
-    try { this.storage?.setItem(this.key, JSON.stringify(snapshot)); } catch { /* Private browsing or quota limits leave the game session-only. */ }
-  }
-}
-
-function browserStorage(): Storage | undefined {
-  try { return globalThis.localStorage; } catch { return undefined; }
-}
-
-function cloneSnapshot(snapshot: PersistedRoster): PersistedRoster { return JSON.parse(JSON.stringify(snapshot)) as PersistedRoster; }
-function parseSnapshot(value: unknown): PersistedRoster | null { return isPersistedRoster(value) ? cloneSnapshot(value) : null; }
 function isRole(value: unknown): value is Role { return value === 'operative' || value === 'spymaster'; }
 function isTeam(value: unknown): value is Team { return value === 'blue' || value === 'red'; }
 function isPlayer(value: unknown): value is Player | null {
@@ -73,26 +38,48 @@ function isPlayer(value: unknown): value is Player | null {
 function isPersistedRoster(value: unknown): value is PersistedRoster {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Record<string, unknown>;
-  if (candidate.version !== 1 || !Array.isArray(candidate.seats) || candidate.seats.length !== seatPlan.length) return false;
-  return candidate.seats.every((seat): boolean => {
+  if (!Array.isArray(candidate.seats) || candidate.seats.length !== seatPlan.length) return false;
+  const seats = candidate.seats;
+  const ids = new Set<string>();
+  const playerIds = new Set<string>();
+  const displayNames = new Set<string>();
+  let humanCount = 0;
+  if (!seats.every((seat): boolean => {
     if (!seat || typeof seat !== 'object') return false;
     const item = seat as Record<string, unknown>;
-    return typeof item.id === 'string' && isTeam(item.team) && isRole(item.role) && isPlayer(item.player)
-      && (item.handle === null || typeof item.handle === 'string');
+    if (typeof item.id !== 'string' || ids.has(item.id) || !isTeam(item.team) || !isRole(item.role)
+      || !isPlayer(item.player) || (item.handle !== null && typeof item.handle !== 'string')) return false;
+    ids.add(item.id);
+    const player = item.player as Player | null;
+    if (!player) return item.handle === null;
+    if (!player.id || playerIds.has(player.id) || !player.displayName.trim()
+      || displayNames.has(player.displayName.toLocaleLowerCase())) return false;
+    playerIds.add(player.id);
+    displayNames.add(player.displayName.toLocaleLowerCase());
+    if (player.controller === 'human') humanCount += 1;
+    return player.controller === 'human' ? item.handle === null : typeof item.handle === 'string' && item.handle.length > 0;
+  })) return false;
+  if (seatPlan.some((seat) => !ids.has(seat.id))) return false;
+  const ordered = seatPlan.map((seat) => seats.find((candidate) => (candidate as Record<string, unknown>).id === seat.id) as Record<string, unknown>);
+  if (!isRole(ordered[0].role)) return false;
+  const humanRole = ordered[0].role;
+  return humanCount === 1 && ordered.every((seat, index) => {
+    const expectedRole = index % 2 === 0 ? humanRole : opposite(humanRole);
+    const player = seat.player as Player | null;
+    return seat.team === seatPlan[index].team && seat.role === expectedRole
+      && (!player || (index === 0 ? player.controller === 'human' : player.controller === 'agent'))
+      && (!player || (player.team === seat.team && player.role === seat.role));
   });
 }
 function opposite(role: Role): Role { return role === 'operative' ? 'spymaster' : 'operative'; }
 
-/** Persistent four-seat roster. Handles remain internal and are never part of Lobby/Player views. */
+/** Four-seat roster. Handles remain internal and are never part of Lobby/Player views. */
 export class Roster {
-  private readonly seats: Seat[];
-  private readonly store: RosterStore;
+  private seats: Seat[];
 
-  constructor(humanRole: Role = 'operative', store: RosterStore = new MemoryRosterStore()) {
-    this.store = store;
-    const saved = store.load();
-    this.seats = saved ? this.hydrate(saved) : this.fresh(humanRole);
-    if (!saved) this.persist();
+  constructor(humanRole: Role = 'operative') {
+    if (!isRole(humanRole)) throw new Error('Invalid human role');
+    this.seats = this.fresh(humanRole);
   }
 
   get humanRole(): Role { return this.seats[0].role; }
@@ -117,7 +104,6 @@ export class Roster {
       seat.role = seatRole;
       if (seat.player) seat.player.role = seatRole;
     });
-    this.persist();
   }
 
   register(name: string, team?: Team, role?: Role): RegistrationResult {
@@ -133,7 +119,6 @@ export class Roster {
       // Recovery keeps the player and physical position stable while issuing a
       // new handle. The old handle is overwritten and therefore invalid.
       existing.handle = randomId();
-      this.persist();
       return { success: true, player: { ...existing.player }, playerHandle: existing.handle, availableSeats: available(), lobby: this.view() };
     }
     const seat = this.seats.find((candidate) => !candidate.player
@@ -148,11 +133,24 @@ export class Roster {
     const handle = randomId();
     seat.player = player;
     seat.handle = handle;
-    this.persist();
     return { success: true, player: { ...player }, playerHandle: handle, availableSeats: available(), lobby: this.view() };
   }
 
   hasHandle(handle: string): boolean { return this.seats.some((seat) => seat.handle === handle); }
+
+  /** Return the complete roster state for the owning GameController to persist. */
+  snapshot(): PersistedRoster {
+    return {
+      seats: this.seats.map((seat) => ({ id: seat.id, team: seat.team, role: seat.role,
+        player: seat.player ? { ...seat.player } : null, handle: seat.handle })),
+    };
+  }
+
+  /** Restore only validated state; storage remains the controller's responsibility. */
+  restore(snapshot: unknown): void {
+    if (!isPersistedRoster(snapshot)) throw new Error('Invalid roster snapshot');
+    this.seats = this.hydrate(snapshot);
+  }
 
   private fresh(humanRole: Role): Seat[] {
     const seats = seatPlan.map((seat, index) => ({
@@ -181,13 +179,6 @@ export class Roster {
     return seats;
   }
 
-  private persist(): void {
-    this.store.save({
-      version: 1,
-      seats: this.seats.map((seat) => ({ id: seat.id, team: seat.team, role: seat.role,
-        player: seat.player ? { ...seat.player } : null, handle: seat.handle })),
-    });
-  }
 }
 
 export { seatPlan };

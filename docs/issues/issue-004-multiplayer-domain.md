@@ -2,7 +2,7 @@
 
 Status: planned
 
-Depends on: Issue 000
+Depends on: Issue 000A
 
 ## Outcome
 

@@ -21,7 +21,7 @@ SemanticSpy is a static, local-only WebMCP application. The human UI and imperat
 
 - Move the reusable Game and Roster domain modules into browser-compatible code.
 - Replace Node-only UUID usage with browser `crypto.randomUUID()` or an injected equivalent.
-- Replace `FileRosterStore` with a versioned `LocalStorageRosterStore`.
+- Replace separate roster persistence with the controller-owned versioned `LocalStorageStateStore` snapshot.
 - Introduce one browser `GameController` shared by the UI and WebMCP tool handlers.
 - Replace `/api/*` fetches with direct controller calls while keeping async tool interfaces where useful.
 - Preserve role-filtered board responses so WebMCP agents receive only the state appropriate to their role.
@@ -41,6 +41,6 @@ SemanticSpy is a static, local-only WebMCP application. The human UI and imperat
 - The production output can be hosted as static files and played without a running application server.
 - Runtime code makes no `/api/*` or `/mcp` requests.
 - UI actions and WebMCP tools operate on the same browser-owned game and roster.
-- Refresh restores the roster from `localStorage`; clearing that storage starts a fresh registration lobby.
+- Refresh restores the controller snapshot from `localStorage`; clearing `semanticspy.state.v1` starts a fresh registration lobby and game.
 - Existing Game, Roster, UI, and WebMCP behavior remains covered by focused tests.
 - The static production build succeeds.

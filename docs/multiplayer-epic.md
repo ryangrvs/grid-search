@@ -45,6 +45,8 @@ Deferred ideas are kept in `docs/PLAN.md` rather than expanding this epic.
 
 The human UI and imperative WebMCP tools share one browser-owned game controller. The roster, player handles, and restorable game state live in versioned browser `localStorage`.
 
+> Decision: Persist one coherent, versioned application snapshot rather than separate roster and game keys. `GameController` owns this persistence seam so role changes and game state cannot be restored out of sync.
+
 > Decision: WebMCP is the only agent integration. Remove the HTTP MCP server. Cross-device human multiplayer is not a requirement.
 
 Role-filtered tool responses remain part of the game rules, but hidden state is not a security boundary against the local human. A player who inspects browser memory may cheat; this is acceptable for a local agent-play experiment.
@@ -129,7 +131,7 @@ Rules:
 
 ### Persistence
 
-> Decision: Preserve registered players, positions, names, and handles through New Round, New Game, and page refresh. Store the roster in versioned browser `localStorage`. Clearing that storage starts a fresh registration lobby.
+> Decision: Preserve registered players, positions, names, and handles through New Round, New Game, and page refresh as part of the one controller-owned versioned browser snapshot. Clearing `semanticspy.state.v1` starts a fresh registration lobby and game.
 
 New Round may switch roles but retains players. New Game changes the board but also retains players.
 
