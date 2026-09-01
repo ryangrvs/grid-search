@@ -1,11 +1,10 @@
 /// <reference types="vite/client" />
 
-import botIcon from '../public/bot.svg?raw';
-import userIcon from '../public/user.svg?raw';
+import botIcon from './assets/bot.svg?raw';
+import userIcon from './assets/user.svg?raw';
 import type { Action, Board, Role } from '../shared/types';
 import { actionTitle, cardPresentation } from './board-view';
 import { CodexClient, type CodexConfig } from './codex';
-import { turnIndicatorMarkup } from './turn-indicator';
 import { agentPrompt, registerWebMCP } from './webmcp';
 import './style.css';
 
@@ -27,12 +26,11 @@ const WAKE_KEY = 'semanticspy.acknowledgedWake.v1';
 const WAKE_ATTEMPT_KEY = 'semanticspy.attemptedWake.v1';
 const root = document.querySelector<HTMLElement>('#app');
 
-function inlineIcon(raw: string, label: string, tintBot = false): string {
-  const tinted = tintBot ? raw.replace('<rect ', '<rect fill="#8ea0ff" ') : raw;
-  return tinted.replace('<svg ', `<svg class="avatar-icon" role="img" aria-label="${label}" `);
+function inlineIcon(raw: string, label: string): string {
+  return raw.replace('<svg ', `<svg class="avatar-icon" role="img" aria-label="${label}" `);
 }
 
-const botIconMarkup = inlineIcon(botIcon, 'Agent', true);
+const botIconMarkup = inlineIcon(botIcon, 'Agent');
 const userIconMarkup = inlineIcon(userIcon, 'You');
 
 export function threadIdFromUrl(url = globalThis.location?.href ?? ''): string | null {
@@ -154,11 +152,11 @@ class SemanticSpyApp {
         <section class="playing-region" aria-label="SemanticSpy playing area">
           <div class="participants-row">
             <div class="participant participant-agent" data-actor="agent">
-              <div class="participant-main"><div class="avatar avatar-agent">${botIconMarkup}</div><div class="participant-copy"><span class="participant-name">Agent</span><span class="participant-role" id="agentRole">Spymaster</span><span class="turn-slot" id="agentTurn"></span></div></div>
+              <div class="participant-main"><div class="avatar avatar-agent">${botIconMarkup}</div><div class="participant-copy"><span class="participant-name">Agent</span><span class="participant-role" id="agentRole">Spymaster</span></div></div>
               <div class="clue-callout clue-callout-left" id="agentClue" aria-live="polite"></div>
             </div>
             <div class="participant participant-human" data-actor="human">
-              <div class="participant-main"><div class="participant-copy participant-copy-right"><span class="participant-name">You</span><span class="participant-role" id="humanRole">Operative</span><span class="turn-slot" id="humanTurn"></span></div><div class="avatar avatar-human">${userIconMarkup}</div></div>
+              <div class="participant-main"><div class="participant-copy participant-copy-right"><span class="participant-name">You</span><span class="participant-role" id="humanRole">Operative</span></div><div class="avatar avatar-human">${userIconMarkup}</div></div>
               <div class="clue-callout clue-callout-right" id="humanClue" aria-live="polite"></div>
             </div>
           </div>
@@ -342,10 +340,9 @@ class SemanticSpyApp {
     if (agentRole) agentRole.textContent = board?.agentRole === 'spymaster' ? 'Spymaster' : 'Operative';
     if (humanRole) humanRole.textContent = board?.humanRole === 'spymaster' ? 'Spymaster' : 'Operative';
 
-    const agentTurn = this.container.querySelector<HTMLElement>('#agentTurn');
-    const humanTurn = this.container.querySelector<HTMLElement>('#humanTurn');
-    if (agentTurn) agentTurn.innerHTML = board?.status === 'playing' && board.turn === 'agent' ? turnIndicatorMarkup("Agent's turn") : '';
-    if (humanTurn) humanTurn.innerHTML = board?.status === 'playing' && board.turn === 'human' ? turnIndicatorMarkup('Your turn') : '';
+    const activeTurn = (actor: 'agent' | 'human'): boolean => Boolean(board?.status === 'playing' && board.turn === actor);
+    this.container.querySelector('.avatar-agent')?.classList.toggle('is-active', activeTurn('agent'));
+    this.container.querySelector('.avatar-human')?.classList.toggle('is-active', activeTurn('human'));
 
     const agentClue = this.container.querySelector<HTMLElement>('#agentClue');
     const humanClue = this.container.querySelector<HTMLElement>('#humanClue');
@@ -384,7 +381,7 @@ class SemanticSpyApp {
     target.classList.add('is-form');
     const form = document.createElement('form'); form.id = 'clueForm'; form.className = 'clue-form';
     const wordBubble = document.createElement('span'); wordBubble.className = 'clue-word-bubble clue-word-entry';
-    const clueLabelNode = document.createElement('label'); clueLabelNode.className = 'clue-kicker'; clueLabelNode.htmlFor = 'clue'; clueLabelNode.textContent = 'Your clue';
+    const clueLabelNode = document.createElement('label'); clueLabelNode.className = 'sr-only'; clueLabelNode.htmlFor = 'clue'; clueLabelNode.textContent = 'Clue word';
     const clue = document.createElement('input'); clue.id = 'clue'; clue.name = 'clue'; clue.maxLength = 40; clue.autocomplete = 'off'; clue.placeholder = 'One word'; clue.value = draft;
     wordBubble.append(clueLabelNode, clue);
     const countBubble = document.createElement('label'); countBubble.className = 'clue-count clue-count-entry'; countBubble.htmlFor = 'count'; countBubble.setAttribute('aria-label', 'Clue count');
@@ -431,7 +428,6 @@ class SemanticSpyApp {
       if (presentation.badge) button.title = presentation.badge;
       if (presentation.alignment) button.classList.add(presentation.alignment);
       if (presentation.animate) button.classList.add('newly-revealed');
-      if (presentation.badge) { const marker = document.createElement('span'); marker.className = 'marker'; marker.textContent = presentation.badge; button.append(marker); }
       const canGuess = this.board.status === 'playing' && this.board.turn === 'human' && this.board.humanRole === 'operative' && this.board.phase === 'guess' && !card.revealed;
       button.disabled = !canGuess || this.busy;
       if (canGuess) {

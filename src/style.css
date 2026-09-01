@@ -43,28 +43,29 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .participant-human .participant-name, .participant-human .participant-role { right: 0; left: auto; text-align: right; }
 .avatar { width: 58px; height: 58px; display: grid; place-items: center; flex: 0 0 58px; color: var(--ink); background: transparent; }
 .avatar img, .avatar svg { width: 56px; height: 56px; display: block; }
-.avatar-agent svg rect { fill: var(--blue-soft); stroke: var(--ink); stroke-width: .8; }
+.avatar-agent svg rect { fill: #fff; stroke: var(--ink); stroke-width: .8; }
+.avatar.is-active.avatar-agent svg rect { fill: var(--blue-soft); }
 .avatar-agent svg { stroke-width: .8; }
 .avatar-human svg { stroke-width: .9; }
-.turn-slot { position: absolute; top: 10px; left: 68px; min-height: 0; display: block; margin-top: 0; white-space: nowrap; }
-.participant-human .turn-slot { right: 68px; left: auto; display: flex; justify-content: flex-end; }
-.participant-human:has(.clue-callout.is-form) .turn-slot { top: 58px; right: 128px; }
+.avatar.is-active.avatar-human svg { color: var(--blue); stroke: var(--blue); }
+.avatar-human svg circle { fill: #fff; }
+.avatar.is-active.avatar-human svg circle { fill: var(--blue); stroke: var(--blue); }
+.turn-slot { display: none; }
 
 /* Clue bubbles sit beside the participant in the same lane; the callout itself has no enclosing panel. */
-.clue-callout { grid-area: clue; position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 50px; margin: 0; padding: 0; background: transparent; }
+.clue-callout { grid-area: clue; position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 50px; margin: 0; padding: 0; background: transparent; transform: translateY(-39px); }
 .clue-callout:empty { display: none; }
-.clue-callout:not(.is-form) .clue-kicker { position: absolute; right: 0; bottom: calc(100% + 3px); color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.clue-callout-right:not(.is-form) .clue-kicker { right: auto; left: 0; }
-.clue-word-bubble { display: grid; grid-template-rows: auto 1fr; place-items: center; min-width: 0; max-width: 100%; min-height: 50px; flex: 1 1 auto; border: 2px solid var(--ink); border-radius: 12px; color: var(--ink); background: #fff; }
-.clue-word { min-width: 0; max-width: 100%; padding: 4px 10px 7px; overflow-wrap: anywhere; white-space: normal; font-size: 16px; font-weight: 700; line-height: 1.08; text-align: center; }
+.clue-word-bubble { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; max-width: 100%; min-height: 50px; flex: 1 1 auto; border: 2px solid var(--ink); border-radius: 12px; color: var(--ink); background: #fff; }
+.clue-callout .clue-kicker { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.clue-word { min-width: 0; max-width: 100%; padding: 7px 10px; overflow-wrap: anywhere; white-space: normal; font-size: 16px; font-weight: 700; line-height: 1.08; text-align: center; }
 .clue-callout-left:not(.is-form) .clue-word-bubble { border-bottom-left-radius: 2px; }
 .clue-callout-right:not(.is-form) .clue-word-bubble { border-bottom-right-radius: 2px; }
 .clue-callout .clue-count { width: 50px; flex: 0 0 50px; border-radius: 9px; font-size: 16px; font-weight: 700; }
 .clue-callout .clue-count { display: grid; place-items: center; min-height: 50px; border: 2px solid var(--ink); color: var(--ink); background: #fff; }
 .clue-form { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 50px; align-items: stretch; gap: 7px; }
 .clue-form .clue-kicker { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.clue-form .clue-word-bubble { align-items: stretch; }
-.clue-form input { width: 100%; min-width: 0; min-height: 0; padding: 4px 9px 7px; border: 0; border-radius: 0; color: var(--ink); background: transparent; text-align: center; outline: none; }
+.clue-form .clue-word-bubble { align-items: center; }
+.clue-form input { width: 100%; min-width: 0; height: 50px; min-height: 0; padding: 0 9px; border: 0; border-radius: 0; color: var(--ink); background: transparent; text-align: center; line-height: 1.2; outline: none; }
 .clue-form .clue-count-entry { padding: 0; overflow: hidden; }
 .clue-form .clue-count-entry input { height: 100%; padding: 0 3px; text-align: center; }
 .clue-submit { grid-column: 1 / -1; justify-self: end; min-height: 30px; padding: 4px 10px; border: 1.5px solid var(--ink); border-radius: 7px; color: #fff; background: var(--ink); font-size: 11px; font-weight: 700; }
@@ -74,13 +75,13 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .game-status { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .clue-banner { display: none !important; }
 .board-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: 100%; }
-.card { position: relative; min-width: 0; aspect-ratio: 174 / 91; padding: 8px 5px; overflow: hidden; border: 2px solid var(--line); border-radius: 12px; color: var(--muted); background: #fff; font-size: clamp(.74rem, 1.72vw, 1rem); font-weight: 700; line-height: 1.12; overflow-wrap: anywhere; transition: transform .15s, border-color .15s, background .15s, color .15s; }
+.card { position: relative; min-width: 0; aspect-ratio: 174 / 91; padding: 8px 5px; overflow: hidden; border: 2px solid var(--line); border-radius: 12px; color: var(--muted); background: #fff; font-size: clamp(.74rem, 1.72vw, 1rem); font-weight: 700; line-height: 1.12; overflow-wrap: anywhere; text-align: center; transition: transform .15s, border-color .15s, background .15s, color .15s; }
 .card:disabled { opacity: 1; }
 .card:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--blue); color: var(--ink); }
 .card.revealed { color: var(--ink); border-color: var(--ink); }
 .card.revealed.blue { background: var(--blue-soft); }
 .card.revealed.red { background: var(--red-soft); }
-.card.revealed.innocent { background: #eef0f2; }
+.card.revealed.innocent, .card.terminal.innocent { border-color: #656b73; color: var(--ink); background: #b7bcc2; }
 .card.revealed.assassin { color: #fff; background: var(--ink); }
 .card.key { border-color: #aeb3ba; background: #f7f8fa; }
 .card.key.blue { border-color: rgba(95,117,255,.58); background: rgba(95,117,255,.20); }
@@ -91,7 +92,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .card.terminal { border-color: var(--line); }
 .card.terminal.blue { background: rgba(95,117,255,.16); }
 .card.terminal.red { background: rgba(255,114,96,.16); }
-.card .marker { display: block; margin-top: 6px; color: inherit; font-size: clamp(.48rem, 1.05vw, .65rem); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.card .marker { display: none; }
 .card.newly-revealed { animation: card-reveal .65s ease-out both; transform-origin: center; }
 @keyframes card-reveal { from { transform: perspective(600px) rotateY(90deg); opacity: .5; } to { transform: perspective(600px) rotateY(0); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .card.newly-revealed { animation: none; } }
