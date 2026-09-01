@@ -4,6 +4,7 @@ import type { Game } from './game';
 import { parseTool, schemas } from './contracts';
 
 export const BOARD_URI = 'semanticspy://game/board';
+const gameplayTools = ['get_board', 'submit_clue', 'make_guess', 'end_turn'] as const;
 export function createGameMcp(game: Game): Server {
   const server = new Server({ name: 'semanticspy', version: '0.1.0' }, { capabilities: { tools: {}, resources: {} } });
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [{ uri: BOARD_URI, name: 'SemanticSpy board', mimeType: 'application/json', description: 'Public grid; add ?role=spymaster for the authenticated agent Spymaster view.' }] }));
@@ -18,7 +19,7 @@ export function createGameMcp(game: Game): Server {
     const result = role === 'spymaster' || board.status !== 'playing' ? board : { ...board, cards: board.cards.map(({ alignment, ...card }) => card.revealed ? { ...card, alignment } : card) };
     return { contents: [{ uri: params.uri, mimeType: 'application/json', text: JSON.stringify(result) }] };
   });
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: Object.entries(schemas).map(([name, inputSchema]) => ({ name, inputSchema, description: name === 'get_board' ? 'Read current agent-authorized board before EVERY move.' : `${name}: act for the agent, only after reading the current board.`, annotations: { readOnlyHint: name === 'get_board', destructiveHint: false, openWorldHint: false } })) }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: gameplayTools.map((name) => ({ name, inputSchema: schemas[name], description: name === 'get_board' ? 'Read current agent-authorized board before EVERY move.' : `${name}: act for the agent, only after reading the current board.`, annotations: { readOnlyHint: name === 'get_board', destructiveHint: false, openWorldHint: false } })) }));
   server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
     try {
       const action = parseTool(params.name, params.arguments ?? {});

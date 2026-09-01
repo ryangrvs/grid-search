@@ -4,8 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Game } from './game';
-import { parseAction, parseRole, schemas } from './contracts';
+import { parseAction, parseRegistration, parseRole, schemas } from './contracts';
 import { createGameMcp } from './mcp';
+import { Roster } from './roster';
 
 function sameSecret(received: string, expected: string): boolean {
   const a = Buffer.from(received), b = Buffer.from(expected);
@@ -28,6 +29,7 @@ async function body(request: IncomingMessage): Promise<unknown> {
 
 export function createApp(options: { game?: Game; distDir?: string } = {}) {
   const game = options.game ?? new Game('operative');
+  const roster = new Roster(game.human);
   const tokens = { human: randomBytes(32).toString('base64url'), agent: randomBytes(32).toString('base64url') };
   const distDir = resolve(options.distDir ?? 'dist');
   const server = createServer((request, response) => { void handle(request, response); });
@@ -53,7 +55,8 @@ export function createApp(options: { game?: Game; distDir?: string } = {}) {
       if (path === '/api/schemas' && method === 'GET') { json(response, 200, schemas); return; }
       if (path === '/api/health' && method === 'GET') { json(response, 200, { ok: true }); return; }
       if (path.startsWith('/api/') || path === '/mcp') {
-        const actor = path.startsWith('/api/agent/') || path === '/mcp' ? 'agent' : 'human';
+        const agentPath = path.startsWith('/api/agent/') || path === '/api/register' || path === '/mcp';
+        const actor = agentPath ? 'agent' : 'human';
         if (!sameSecret(request.headers.authorization ?? '', `Bearer ${tokens[actor]}`)) { json(response, 401, { error: 'Invalid actor capability' }); return; }
         if (path === '/mcp') {
           if (method !== 'POST') { json(response, 405, { error: 'Only POST is supported for stateless MCP' }); return; }
@@ -66,9 +69,15 @@ export function createApp(options: { game?: Game; distDir?: string } = {}) {
           return;
         }
         if ((path === '/api/board' || path === '/api/agent/board') && method === 'GET') { json(response, 200, game.getBoard(actor)); return; }
+        if ((path === '/api/lobby' || path === '/api/agent/lobby') && method === 'GET') { json(response, 200, roster.view()); return; }
+        if (path === '/api/register' && method === 'POST') {
+          const registration = parseRegistration(await body(request));
+          json(response, 200, roster.register(registration.name, registration.team, registration.role));
+          return;
+        }
         if ((path === '/api/action' || path === '/api/agent/action') && method === 'POST') { json(response, 200, game.act(actor, parseAction(await body(request)))); return; }
-        if (path === '/api/new' && method === 'POST') { json(response, 200, game.reset(parseRole(await body(request)))); return; }
-        if (path === '/api/next-round' && method === 'POST') { json(response, 200, game.nextRound(parseRole(await body(request)))); return; }
+        if (path === '/api/new' && method === 'POST') { const role = parseRole(await body(request)); roster.setHumanRole(role); json(response, 200, game.reset(role)); return; }
+        if (path === '/api/next-round' && method === 'POST') { const role = parseRole(await body(request)); roster.setHumanRole(role); json(response, 200, game.nextRound(role)); return; }
         json(response, 404, { error: 'Unknown endpoint or method' }); return;
       }
       if (method !== 'GET' && method !== 'HEAD') { json(response, 405, { error: 'Method not allowed' }); return; }
@@ -85,5 +94,5 @@ export function createApp(options: { game?: Game; distDir?: string } = {}) {
       else response.end();
     }
   }
-  return { server, game, tokens };
+  return { server, game, roster, tokens };
 }

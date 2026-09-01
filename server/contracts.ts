@@ -1,4 +1,4 @@
-import type { Action, Role } from '../shared/types';
+import type { Action, Role, Team } from '../shared/types';
 
 export { schemas } from '../shared/schemas';
 
@@ -40,4 +40,20 @@ export function parseRole(input: unknown): Role {
   const args = object(input); keys(args, ['humanRole']);
   if (args.humanRole !== 'operative' && args.humanRole !== 'spymaster') throw new Error('Invalid human role');
   return args.humanRole;
+}
+
+export interface RegistrationInput { name: string; team?: Team; role?: Role }
+
+export function parseRegistration(input: unknown): RegistrationInput {
+  const args = object(input);
+  const allowed = ['name', 'team', 'role'];
+  if (Object.keys(args).some((key) => !allowed.includes(key)) || !('name' in args)) {
+    throw new Error('Expected name, with optional team and role');
+  }
+  if (typeof args.name !== 'string' || !args.name.trim() || args.name.trim().length > 40) {
+    throw new Error('Name must contain 1–40 characters');
+  }
+  if (args.team !== undefined && args.team !== 'blue' && args.team !== 'red') throw new Error('Invalid team');
+  if (args.role !== undefined && args.role !== 'operative' && args.role !== 'spymaster') throw new Error('Invalid role');
+  return { name: args.name.trim(), team: args.team as Team | undefined, role: args.role as Role | undefined };
 }

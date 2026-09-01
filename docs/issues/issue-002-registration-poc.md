@@ -1,6 +1,6 @@
 # Issue 002: Registration Lobby POC
 
-Status: ready next
+Status: complete
 
 Depends on: Issue 001
 

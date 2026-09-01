@@ -1,4 +1,4 @@
-import type { Action, Board } from '../shared/types';
+import type { Action, Board, RegistrationResult, Role, Team } from '../shared/types';
 
 export const BOARD_URI = 'semanticspy://game/board';
 
@@ -29,6 +29,7 @@ export interface WebMCPRegistration {
 }
 
 const toolNames = ['get_board', 'submit_clue', 'make_guess', 'end_turn'] as const;
+const registrationToolName = 'register' as const;
 
 function modelContextHost(): ModelContext | undefined {
   const doc = globalThis.document as (Document & { modelContext?: ModelContext }) | undefined;
@@ -85,6 +86,18 @@ function requireCount(args: Record<string, unknown>): number {
   return value;
 }
 
+function registrationArgs(args: Record<string, unknown>): { name: string; team?: Team; role?: Role } {
+  const actual = Object.keys(args ?? {});
+  if (!actual.includes('name') || actual.some((key) => !['name', 'team', 'role'].includes(key))) {
+    throw new Error('Arguments must contain name and may contain team, role');
+  }
+  const name = requireText(args, 'name');
+  if (name.length > 40) throw new Error('name must be at most 40 characters');
+  if (args.team !== undefined && args.team !== 'blue' && args.team !== 'red') throw new Error('team must be blue or red');
+  if (args.role !== undefined && args.role !== 'operative' && args.role !== 'spymaster') throw new Error('role must be operative or spymaster');
+  return { name, team: args.team as Team | undefined, role: args.role as Role | undefined };
+}
+
 /**
  * Register the local game as WebMCP tools. The modelContext API is feature-detected
  * at call time; no browser resource registry or synthetic fallback is used.
@@ -98,9 +111,9 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const base = options.apiBase ?? '';
-  let schemas: Record<(typeof toolNames)[number], JsonSchema>;
+  let schemas: Record<(typeof toolNames)[number], JsonSchema> & Partial<Record<typeof registrationToolName, JsonSchema>>;
   try {
-    schemas = schemaMap(await readJson(await fetchImpl(`${base}/api/schemas`)));
+    schemas = schemaMap(await readJson(await fetchImpl(`${base}/api/schemas`))) as typeof schemas;
   } catch (error) {
     return { supported: false, registered: [], reason: error instanceof Error ? error.message : 'Could not load WebMCP schemas.' };
   }
@@ -118,6 +131,13 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
     // The agent view never enters the human DOM. The callback fetches /api/board itself.
     await options.refreshHumanBoard?.();
     return { uri: BOARD_URI, board };
+  };
+
+  const register = async (args: Record<string, unknown>): Promise<RegistrationResult> => {
+    const registration = registrationArgs(args);
+    const result = await request<RegistrationResult>('/api/register', { method: 'POST', body: JSON.stringify(registration) });
+    await options.refreshHumanBoard?.();
+    return result;
   };
 
   const tools = [
@@ -158,8 +178,14 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
         return mutate({ type: 'end_turn' });
       },
     },
+    ...(schemas.register ? [{
+      name: registrationToolName,
+      description: 'Register as a player in the live SemanticSpy lobby. Team and role are optional; the next open Blue-first seat is assigned when omitted.',
+      inputSchema: schemas.register,
+      execute: async (args: Record<string, unknown>) => register(args),
+    }] : []),
   ];
 
   for (const tool of tools) await host.registerTool(tool);
-  return { supported: true, registered: [...toolNames] };
+  return { supported: true, registered: [...toolNames, ...(schemas.register ? [registrationToolName] : [])] };
 }

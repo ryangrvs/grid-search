@@ -14,6 +14,15 @@ export const schemas = {
     required: ['word'], additionalProperties: false,
   },
   end_turn: { type: 'object' as const, properties: {}, required: [], additionalProperties: false },
+  register: {
+    type: 'object' as const,
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 40 },
+      team: { type: 'string', enum: ['blue', 'red'] },
+      role: { type: 'string', enum: ['spymaster', 'operative'] },
+    },
+    required: ['name'], additionalProperties: false,
+  },
 };
 
 export type SchemaName = keyof typeof schemas;

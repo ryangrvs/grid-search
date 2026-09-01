@@ -2,7 +2,7 @@
 
 import botIcon from './assets/bot.svg?raw';
 import userIcon from './assets/user.svg?raw';
-import type { Action, Board, Role } from '../shared/types';
+import type { Action, Board, Lobby, Role } from '../shared/types';
 import { actionTitle, cardPresentation } from './board-view';
 import { registerWebMCP } from './webmcp';
 import './style.css';
@@ -44,7 +44,9 @@ async function bootstrap(): Promise<Bootstrap> {
 
 class SemanticSpyApp {
   private board: Board | null = null;
+  private lobby: Lobby | null = null;
   private bootstrapData: Bootstrap | null = null;
+  private lobbyOpen = false;
   private busy = false;
   private errorMessage = '';
   private mcpMessage = 'Checking WebMCP support…';
@@ -59,14 +61,15 @@ class SemanticSpyApp {
       this.bootstrapData = await bootstrap();
       this.mountShell();
       await this.refreshHumanBoard();
+      await this.refreshLobby();
       const registration = await registerWebMCP({
         agentToken: this.bootstrapData.agentToken,
-        refreshHumanBoard: () => this.refreshHumanBoard(),
+        refreshHumanBoard: async () => { await this.refreshHumanBoard(); await this.refreshLobby(); },
       });
       this.mcpMessage = registration.supported
         ? 'WebMCP tools ready for the agent.'
         : registration.reason || 'WebMCP unavailable in this browser.';
-      window.setInterval(() => { void this.pollBoard(); }, 2500);
+      window.setInterval(() => { void this.pollBoard(); void this.pollLobby(); }, 2500);
     } catch (error) {
       this.errorMessage = error instanceof Error ? error.message : 'Could not connect to the local game.';
       this.mountShell();
@@ -106,6 +109,15 @@ class SemanticSpyApp {
           </div>
         </section>
       </div>
+      <div id="lobbyModal" class="lobby-modal" role="dialog" aria-modal="true" aria-labelledby="lobbyTitle" hidden>
+        <div class="lobby-dialog">
+          <div class="section-head"><h2 id="lobbyTitle">New Game</h2><button id="closeLobby" class="icon-button" type="button" aria-label="Close lobby">×</button></div>
+          <p class="hint">Register agents into the four seats before starting a match.</p>
+          <div id="lobbyGrid" class="lobby-grid" aria-label="Player registration lobby"></div>
+          <div class="lobby-actions"><button id="startCoop" class="button" type="button" disabled>Start Co-op</button><button id="startVersus" class="button secondary" type="button" disabled>Start Versus</button></div>
+          <p id="lobbyMessage" class="notice" aria-live="polite"></p>
+        </div>
+      </div>
       <p id="errorMessage" class="notice error" role="alert" aria-live="assertive"></p>`;
     this.bindShellEvents();
     this.render();
@@ -114,6 +126,9 @@ class SemanticSpyApp {
   private bindShellEvents(): void {
     this.container.querySelector<HTMLButtonElement>('#newGame')?.addEventListener('click', () => { void this.newGame(); });
     this.container.querySelector<HTMLButtonElement>('#nextRound')?.addEventListener('click', () => { void this.nextRound(); });
+    this.container.querySelector<HTMLButtonElement>('#closeLobby')?.addEventListener('click', () => { this.lobbyOpen = false; this.render(); });
+    this.container.querySelector<HTMLButtonElement>('#startCoop')?.addEventListener('click', () => { void this.startLobby('co-op'); });
+    this.container.querySelector<HTMLButtonElement>('#startVersus')?.addEventListener('click', () => { void this.startLobby('versus'); });
   }
 
   private async refreshHumanBoard(): Promise<void> {
@@ -140,6 +155,20 @@ class SemanticSpyApp {
     }
   }
 
+  private async refreshLobby(): Promise<void> {
+    if (!this.bootstrapData) return;
+    this.lobby = await jsonRequest<Lobby>('/api/lobby', this.bootstrapData.humanToken);
+    this.renderLobby();
+  }
+
+  private async pollLobby(): Promise<void> {
+    if (this.busy || !this.bootstrapData) return;
+    try { await this.refreshLobby(); } catch (error) {
+      this.errorMessage = error instanceof Error ? error.message : 'Lobby refresh failed';
+      this.render();
+    }
+  }
+
   private async humanAction(action: Action): Promise<void> {
     if (!this.bootstrapData || this.busy || !this.board || this.board.status !== 'playing') return;
     this.busy = true; this.errorMessage = ''; this.render();
@@ -153,7 +182,15 @@ class SemanticSpyApp {
   }
 
   private async newGame(): Promise<void> {
-    await this.resetGame('/api/new', 'New Game', 'Deal a completely fresh field of 25 words? The current match will be replaced.');
+    this.lobbyOpen = true;
+    try { await this.refreshLobby(); } catch (error) { this.errorMessage = error instanceof Error ? error.message : 'Could not load the lobby.'; }
+    this.render();
+  }
+
+  private async startLobby(mode: 'co-op' | 'versus'): Promise<void> {
+    if (!this.lobby || (mode === 'co-op' && !this.lobby.canStartCoop) || (mode === 'versus' && !this.lobby.canStartVersus)) return;
+    this.lobbyOpen = false;
+    await this.resetGame('/api/new', `Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.');
   }
 
   private async nextRound(): Promise<void> {
@@ -190,6 +227,7 @@ class SemanticSpyApp {
     this.renderScores();
     this.renderParticipants();
     this.renderGrid(); this.renderLog(); this.renderAction(); this.renderControls();
+    this.renderLobby();
     const error = this.container.querySelector('#errorMessage'); if (error) error.textContent = this.errorMessage;
     const mcp = this.container.querySelector('#mcpMessage'); if (mcp) mcp.textContent = this.mcpMessage;
   }
@@ -386,6 +424,29 @@ class SemanticSpyApp {
     const roleSelect = this.container.querySelector<HTMLSelectElement>('#roleSelect'); if (roleSelect) roleSelect.disabled = this.busy;
     const mcp = this.container.querySelector('#mcpMessage'); if (mcp) mcp.textContent = this.mcpMessage;
     const error = this.container.querySelector('#errorMessage'); if (error) error.textContent = this.errorMessage;
+  }
+
+  private renderLobby(): void {
+    const modal = this.container.querySelector<HTMLElement>('#lobbyModal');
+    const grid = this.container.querySelector<HTMLElement>('#lobbyGrid');
+    if (!modal || !grid) return;
+    modal.toggleAttribute('hidden', !this.lobbyOpen);
+    grid.replaceChildren();
+    for (const seat of this.lobby?.seats ?? []) {
+      const card = document.createElement('article');
+      card.className = `lobby-card lobby-${seat.team}`;
+      const icon = document.createElement('div'); icon.className = 'lobby-avatar'; icon.innerHTML = seat.player?.controller === 'human' ? userIconMarkup : botIconMarkup;
+      const name = document.createElement('strong'); name.textContent = seat.player?.displayName ?? 'Open seat';
+      const role = document.createElement('span'); role.textContent = seat.player ? (seat.player.role === 'spymaster' ? 'Spymaster' : 'Operative') : (seat.role === 'spymaster' ? 'Spymaster' : 'Operative');
+      card.append(icon, name, role);
+      grid.append(card);
+    }
+    const startCoop = this.container.querySelector<HTMLButtonElement>('#startCoop');
+    const startVersus = this.container.querySelector<HTMLButtonElement>('#startVersus');
+    if (startCoop) { startCoop.hidden = !this.lobby?.canStartCoop; startCoop.disabled = !this.lobby?.canStartCoop || this.busy; }
+    if (startVersus) { startVersus.hidden = !this.lobby?.canStartVersus; startVersus.disabled = !this.lobby?.canStartVersus || this.busy; }
+    const message = this.container.querySelector('#lobbyMessage');
+    if (message) message.textContent = this.lobby ? `${this.lobby.seats.filter((seat) => seat.player).length} of 4 seats occupied` : 'Loading lobby…';
   }
 }
 

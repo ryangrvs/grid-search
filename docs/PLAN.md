@@ -10,8 +10,8 @@ Work in dependency order unless an issue explicitly says it can overlap.
 
 | Issue | Scope | Status | Depends on |
 | --- | --- | --- | --- |
-| [001](issues/issue-001-remove-wake.md) | Remove app-managed wake and connection UI | Delegated | — |
-| [002](issues/issue-002-registration-poc.md) | 2×2 lobby and multi-agent `register` POC | Ready next | 001 |
+| [001](issues/issue-001-remove-wake.md) | Remove app-managed wake and connection UI | Complete | — |
+| [002](issues/issue-002-registration-poc.md) | 2×2 lobby and multi-agent `register` POC | Complete | 001 |
 | [003](issues/issue-003-persistent-roster.md) | Persistent players, handles, and role switching | Planned | 002 |
 | [004](issues/issue-004-multiplayer-domain.md) | One-engine Blue-only and Blue-vs-Red rules | Planned | 003 |
 | [005](issues/issue-005-webmcp-tooling.md) | `get_context`, `get_state`, and player-scoped actions | Planned | 003, 004 |
@@ -19,7 +19,7 @@ Work in dependency order unless an issue explicitly says it can overlap.
 | [007](issues/issue-007-education-outcomes.md) | How to Play, turn counter, and finish modal | Planned | 004, 006 |
 | [008](issues/issue-008-live-verification.md) | Lightweight checks and complete multi-agent match | Planned | 005, 006, 007 |
 
-Issues 005 and 006 may proceed in separate worktrees after issues 003 and 004 are integrated because their primary file ownership differs.
+Issues 005 and 006 may proceed in parallel after issues 003 and 004 are integrated because their primary file ownership differs. For now, coordinate subagents in the shared checkout rather than creating worktrees.
 
 ## If time
 

@@ -1,6 +1,6 @@
 # Issue 001: Remove App-Managed Wake
 
-Status: delegated to **Multi-agent frontend**
+Status: complete
 
 Depends on: nothing
 
