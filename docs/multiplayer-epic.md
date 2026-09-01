@@ -75,7 +75,7 @@ The loose `playerHandle` used by tools is stored separately from the public Play
 
 The human's physical position never changes. If the human switches roles, the two Blue role labels switch while the people remain in place. Players should generally remain in their physical positions between rounds; the active-turn treatment makes the current turn clear.
 
-> Comment: With the default Human Operative setup, placing Red Spymaster bottom-left and Red Operative bottom-right produces a visually circular turn sequence. We should not reorder people every time roles change merely to preserve that circle.
+> Decision: Roles align vertically. The bottom-left Red player has the same role as the human above them, and the bottom-right Red player has the opposite role. When the human switches roles between rounds, role labels switch within both teams while all four people remain in their physical positions.
 
 ### Human role changes
 
@@ -323,4 +323,3 @@ The manual acceptance test is a complete Human + Agent versus Agent + Agent game
 - No public `expectedRevision` argument for MVP.
 - Imperative WebMCP tools remain the correct approach.
 - Chat, demo board, orchestrator, and cheating experiments are backlog items.
-

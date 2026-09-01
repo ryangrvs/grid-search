@@ -28,3 +28,7 @@ Use an in-memory roster for this proof of concept; persistence and recovery belo
 - Requested and automatic seat assignment both work.
 - The UI reflects registrations without reloading.
 - No multiplayer game-rule refactor is included yet.
+
+## Validation
+
+Verified manually with three distinct agents against one live page: each registered a unique name, requested and automatic role assignment worked, and the final agent received the remaining open seat.

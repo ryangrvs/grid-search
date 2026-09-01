@@ -88,6 +88,15 @@ describe('local HTTP and MCP integration', () => {
     expect(fresh.humanRole).toBe('spymaster');
   });
 
+  it('rejects role changes during an active turn without changing the roster', async () => {
+    const before = await (await request('/api/lobby', 'human')).json();
+    expect((await request('/api/role', 'human', { humanRole: 'spymaster' })).status).toBe(400);
+    const after = await (await request('/api/lobby', 'human')).json();
+    expect(after.seats.map((seat: { id: string; role: string }) => ({ id: seat.id, role: seat.role })))
+      .toEqual(before.seats.map((seat: { id: string; role: string }) => ({ id: seat.id, role: seat.role })));
+    expect((await request('/api/next-round', 'human', { humanRole: 'spymaster' })).status).toBe(400);
+  });
+
   it('reveals the remaining key through HTTP and MCP after game-over without inflating scores', async () => {
     const secret = app.game.getBoard('agent');
     const assassin = secret.cards.find((card) => card.alignment === 'assassin')!;

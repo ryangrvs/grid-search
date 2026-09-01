@@ -6,7 +6,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Game } from './game';
 import { parseAction, parseRegistration, parseRole, schemas } from './contracts';
 import { createGameMcp } from './mcp';
-import { Roster } from './roster';
+import { Roster, type RosterStore } from './roster';
 
 function sameSecret(received: string, expected: string): boolean {
   const a = Buffer.from(received), b = Buffer.from(expected);
@@ -27,9 +27,14 @@ async function body(request: IncomingMessage): Promise<unknown> {
   try { return JSON.parse(Buffer.concat(parts).toString()); } catch { throw new Error('Invalid JSON'); }
 }
 
-export function createApp(options: { game?: Game; distDir?: string } = {}) {
-  const game = options.game ?? new Game('operative');
-  const roster = new Roster(game.human);
+export function createApp(options: { game?: Game; distDir?: string; rosterStore?: RosterStore } = {}) {
+  // Hydrate the roster before creating a default game so a persisted human role
+  // remains authoritative after a standalone-server restart.
+  const roster = new Roster(options.game?.human ?? 'operative', options.rosterStore);
+  const game = options.game ?? new Game(roster.humanRole);
+  // An injected game may be reconstructed independently of the local roster
+  // (for example, a host restoring both from disk); keep their role views in sync.
+  if (game.human !== roster.humanRole) game.reset(roster.humanRole);
   const tokens = { human: randomBytes(32).toString('base64url'), agent: randomBytes(32).toString('base64url') };
   const distDir = resolve(options.distDir ?? 'dist');
   const server = createServer((request, response) => { void handle(request, response); });
@@ -76,8 +81,28 @@ export function createApp(options: { game?: Game; distDir?: string } = {}) {
           return;
         }
         if ((path === '/api/action' || path === '/api/agent/action') && method === 'POST') { json(response, 200, game.act(actor, parseAction(await body(request)))); return; }
-        if (path === '/api/new' && method === 'POST') { const role = parseRole(await body(request)); roster.setHumanRole(role); json(response, 200, game.reset(role)); return; }
-        if (path === '/api/next-round' && method === 'POST') { const role = parseRole(await body(request)); roster.setHumanRole(role); json(response, 200, game.nextRound(role)); return; }
+        if (path === '/api/role' && method === 'POST') {
+          const role = parseRole(await body(request));
+          if (game.view('human').status === 'playing' && role !== roster.humanRole) throw new Error('Human role cannot change during an active clue/guess turn');
+          roster.setHumanRole(role);
+          json(response, 200, roster.view());
+          return;
+        }
+        if (path === '/api/new' && method === 'POST') {
+          const role = parseRole(await body(request));
+          // New Game is the lobby transition: selecting a role here applies to
+          // the next game, even when the previous game is still in progress.
+          roster.setHumanRole(role);
+          json(response, 200, game.reset(role));
+          return;
+        }
+        if (path === '/api/next-round' && method === 'POST') {
+          const role = parseRole(await body(request));
+          if (game.view('human').status === 'playing' && role !== roster.humanRole) throw new Error('Human role cannot change during an active clue/guess turn');
+          roster.setHumanRole(role);
+          json(response, 200, game.nextRound(role));
+          return;
+        }
         json(response, 404, { error: 'Unknown endpoint or method' }); return;
       }
       if (method !== 'GET' && method !== 'HEAD') { json(response, 405, { error: 'Method not allowed' }); return; }

@@ -17,6 +17,9 @@ POST /api/action: humanToken bearer, body {type:'submit_clue',clue,count} | {typ
 POST /api/agent/action: agentToken bearer, same body -> Board.
 POST /api/new: humanToken bearer, {humanRole:'operative'|'spymaster'} -> Board. Deals 25 words with no overlap against immediately prior board.
 POST /api/next-round: humanToken bearer, same role body -> Board. Keeps current 25 words, shuffles positions/key, clears progress and stale agent read, assigns a new game ID.
+GET /api/lobby and GET /api/agent/lobby: current four fixed seats with public Player identity fields (displayName, controller, team, role); handles stay internal.
+POST /api/role: humanToken bearer, {humanRole} -> Lobby; role changes are rejected while a round is active.
+Roster persistence: the standalone server stores fixed seats, player identities, roles, and opaque handles in local `.semanticspy-roster.json`; New Round/New Game retain it and same-name registration rotates the handle.
 Every error non-2xx {error:string}. No public secret board leak. In-memory game lifetime documented, tokens never in persisted browser storage.
 
 ## Board DTO (shared/types.ts)

@@ -114,6 +114,7 @@ class SemanticSpyApp {
           <div class="section-head"><h2 id="lobbyTitle">New Game</h2><button id="closeLobby" class="icon-button" type="button" aria-label="Close lobby">×</button></div>
           <p class="hint">Register agents into the four seats before starting a match.</p>
           <div id="lobbyGrid" class="lobby-grid" aria-label="Player registration lobby"></div>
+          <div class="field"><label for="lobbyRoleSelect">Your Blue role</label><select id="lobbyRoleSelect"><option value="operative">Operative</option><option value="spymaster">Spymaster</option></select></div>
           <div class="lobby-actions"><button id="startCoop" class="button" type="button" disabled>Start Co-op</button><button id="startVersus" class="button secondary" type="button" disabled>Start Versus</button></div>
           <p id="lobbyMessage" class="notice" aria-live="polite"></p>
         </div>
@@ -183,23 +184,28 @@ class SemanticSpyApp {
 
   private async newGame(): Promise<void> {
     this.lobbyOpen = true;
-    try { await this.refreshLobby(); } catch (error) { this.errorMessage = error instanceof Error ? error.message : 'Could not load the lobby.'; }
+    try {
+      await this.refreshLobby();
+      const roleSelect = this.container.querySelector<HTMLSelectElement>('#lobbyRoleSelect');
+      if (roleSelect && this.board) roleSelect.value = this.board.humanRole;
+    } catch (error) { this.errorMessage = error instanceof Error ? error.message : 'Could not load the lobby.'; }
     this.render();
   }
 
   private async startLobby(mode: 'co-op' | 'versus'): Promise<void> {
     if (!this.lobby || (mode === 'co-op' && !this.lobby.canStartCoop) || (mode === 'versus' && !this.lobby.canStartVersus)) return;
     this.lobbyOpen = false;
-    await this.resetGame('/api/new', `Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.');
+    const roleSelect = this.container.querySelector<HTMLSelectElement>('#lobbyRoleSelect');
+    await this.resetGame('/api/new', `Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.', roleSelect?.value);
   }
 
   private async nextRound(): Promise<void> {
     await this.resetGame('/api/next-round', 'Next Round', 'Start a new key with the same 25 words? The current round will end.');
   }
 
-  private async resetGame(path: string, _label: string, confirmation: string): Promise<void> {
+  private async resetGame(path: string, _label: string, confirmation: string, selectedRole?: string): Promise<void> {
     if (!this.bootstrapData || this.busy) return;
-    const role = this.container.querySelector<HTMLSelectElement>('#roleSelect')?.value === 'spymaster' ? 'spymaster' : 'operative';
+    const role = (selectedRole ?? this.container.querySelector<HTMLSelectElement>('#roleSelect')?.value) === 'spymaster' ? 'spymaster' : 'operative';
     if (!window.confirm(confirmation)) return;
     this.busy = true;
     try {

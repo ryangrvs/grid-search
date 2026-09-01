@@ -12,7 +12,7 @@ Work in dependency order unless an issue explicitly says it can overlap.
 | --- | --- | --- | --- |
 | [001](issues/issue-001-remove-wake.md) | Remove app-managed wake and connection UI | Complete | — |
 | [002](issues/issue-002-registration-poc.md) | 2×2 lobby and multi-agent `register` POC | Complete | 001 |
-| [003](issues/issue-003-persistent-roster.md) | Persistent players, handles, and role switching | Planned | 002 |
+| [003](issues/issue-003-persistent-roster.md) | Persistent players, handles, and role switching | Complete | 002 |
 | [004](issues/issue-004-multiplayer-domain.md) | One-engine Blue-only and Blue-vs-Red rules | Planned | 003 |
 | [005](issues/issue-005-webmcp-tooling.md) | `get_context`, `get_state`, and player-scoped actions | Planned | 003, 004 |
 | [006](issues/issue-006-four-player-ui.md) | Four-player board layout and turn presentation | Planned | 003, 004 |

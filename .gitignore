@@ -6,3 +6,4 @@ dist/
 .env
 .env.*
 !.env.example
+.semanticspy-roster.json
