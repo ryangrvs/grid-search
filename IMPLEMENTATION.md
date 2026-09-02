@@ -1,6 +1,6 @@
 # SemanticSpy implementation contract
 
-SemanticSpy is a static, local-only WebMCP game. The browser owns one `GameController`, which contains the in-memory `Game` and `Roster` plus one versioned `LocalStorageStateStore` snapshot. The human UI and imperative WebMCP handlers call that same controller directly. There is no backend, HTTP API, MCP server, proxy, token, database, wake service, or runtime network request.
+SemanticSpy is a static, local-only WebMCP game. Each browser tab owns one `GameController`, which contains the in-memory `Game` and `Roster`; tabs coordinate through one versioned `LocalStorageStateStore` snapshot for the app origin. The human UI and imperative WebMCP handlers within a tab call that tab's controller directly. There is no backend, HTTP API, MCP server, proxy, token, database, wake service, or runtime network request.
 
 ## Runtime modules
 
@@ -8,9 +8,9 @@ SemanticSpy is a static, local-only WebMCP game. The browser owns one `GameContr
 - `src/roster.ts` owns the fixed four-seat lobby and exposes validated snapshots; it never reads or writes storage. Handles remain internal and are rotated on same-name agent recovery.
 - `src/game.ts` exposes a validated snapshot containing the hidden key, participating Players, match mode, active Player, winner, and turn counters. Fresh agent-read authorization is intentionally not included in that snapshot.
 - `src/state-store.ts` provides `LocalStorageStateStore` under `semanticspy.state.v1` and `MemoryStateStore` for tests. A successful unified-state write removes the obsolete `semanticspy.roster.v1` key from earlier builds.
-- `src/game-controller.ts` is the single browser state boundary and persistence seam. It loads one coherent `{ version: 1, game, roster }` snapshot, saves after every successful mutation, starts Co-op or Versus from the authoritative roster, resolves player handles, and returns one caller-authorized state shape with legal actions.
-- `src/webmcp.ts` feature-detects `document.modelContext` (with the navigator compatibility path) and imperatively registers `get_context`, `get_state`, `submit_clue`, `make_guess`, `end_turn`, and `register` with strict schemas. State and action results use `semanticspy://game/state`; every dynamic tool is player-handle scoped, and no tool uses `expectedRevision`.
-- `src/main.ts` renders the human view as a fixed four-seat table around the board and calls the controller for all refreshes and actions. Player positions remain stable when Next Round switches roles. The New Game lobby is the only role picker. Polling only re-reads local state to update UI; it is not synchronization with a service.
+- `src/game-controller.ts` is the browser state boundary and persistence seam. It loads and change-detects one coherent `{ version: 1, game, roster }` snapshot, can atomically rehydrate both domains without writing it back, saves after every successful mutation, starts Co-op or Versus from the authoritative roster, resolves player handles, and returns one caller-authorized state shape with legal actions.
+- `src/webmcp.ts` feature-detects `document.modelContext` (with the navigator compatibility path) and imperatively registers `get_context`, `get_state`, `submit_clue`, `make_guess`, `end_turn`, and `register` with strict schemas. State and action results use `semanticspy://game/state`; every dynamic tool is player-handle scoped, synchronizes from persisted state before reading or mutating, and no tool uses `expectedRevision`.
+- `src/main.ts` renders the human view as a fixed four-seat table around the board and calls the controller for all refreshes and actions. Player positions remain stable when Next Round switches roles. The New Game lobby is the only role picker. Same-origin tabs react to `storage` events immediately, with polling as a fallback for delayed or suppressed cross-tab events; neither mechanism synchronizes with a server.
 
 ## Game rules and views
 

@@ -87,6 +87,7 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
   }
 
   const mutate = async (playerHandle: string, action: Action): Promise<{ uri: string; state: AuthorizedState }> => {
+    options.controller.syncFromStore();
     const state = options.controller.actForHandle(playerHandle, action);
     await options.refreshHumanBoard?.();
     return { uri: STATE_URI, state };
@@ -109,6 +110,7 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
       execute: async (args: Record<string, unknown>) => {
         requireKeys(args, ['playerHandle']);
         const playerHandle = requireText(args, 'playerHandle');
+        options.controller.syncFromStore();
         return { uri: STATE_URI, state: options.controller.getState(playerHandle) };
       },
     },
@@ -145,6 +147,7 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
       inputSchema: schemas.register as JsonSchema,
       execute: async (args: Record<string, unknown>): Promise<RegistrationResult> => {
         const registration = registrationArgs(args);
+        options.controller.syncFromStore();
         const result = options.controller.register(registration.name, registration.team, registration.role);
         await options.refreshHumanBoard?.();
         return result;

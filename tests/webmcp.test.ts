@@ -51,6 +51,22 @@ describe('browser WebMCP adapter', () => {
     await expect(registered.end_turn.execute({ playerHandle: handle })).rejects.toThrow('not your turn');
   });
 
+  it('rehydrates before get_state when another controller has advanced the shared store', async () => {
+    const store = new MemoryStateStore();
+    const first = new GameController({ stateStore: store });
+    const registration = first.register('Atlas');
+    const second = new GameController({ stateStore: store });
+    const registered: Record<string, { execute: (args: Record<string, unknown>) => Promise<any> }> = {};
+    await registerWebMCP({ controller: second, host: { registerTool: async (tool) => { registered[tool.name] = tool; } } });
+
+    first.getBoard('agent');
+    first.act('agent', { type: 'submit_clue', clue: 'Cosmic', count: 1 });
+
+    const state = await registered.get_state.execute({ playerHandle: registration.playerHandle });
+    expect(state.state.clue).toEqual({ word: 'Cosmic', count: 1 });
+    expect(state.state.activePlayer.displayName).toBe('You');
+  });
+
   it('rejects unknown arguments and handles before mutating the game', async () => {
     const registered: Record<string, { execute: (args: Record<string, unknown>) => Promise<unknown> }> = {};
     const controller = new GameController({ stateStore: new MemoryStateStore() });

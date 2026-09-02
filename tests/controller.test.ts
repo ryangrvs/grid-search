@@ -90,6 +90,52 @@ describe('browser GameController', () => {
     expect(restored.act('agent', { type: 'submit_clue', clue: 'Fresh', count: 1 }).clue).toEqual({ word: 'Fresh', count: 1 });
   });
 
+  it('syncs a stale second controller after the first controller moves', () => {
+    const store = new MemoryStateStore();
+    const first = new GameController({ stateStore: store });
+    first.register('Atlas');
+    const second = new GameController({ stateStore: store });
+
+    first.getBoard('agent');
+    first.act('agent', { type: 'submit_clue', clue: 'Cosmic', count: 2 });
+
+    expect(second.syncFromStore()).toBe(true);
+    expect(second.view('agent').revision).toBe(first.view('agent').revision);
+    expect(second.view('agent').clue).toEqual(first.view('agent').clue);
+  });
+
+  it('preserves a fresh agent read when the persisted snapshot is unchanged', () => {
+    const controller = new GameController({ stateStore: new MemoryStateStore() });
+    const registration = controller.register('Atlas');
+    controller.getState(registration.playerHandle!);
+
+    expect(controller.syncFromStore()).toBe(false);
+    expect(controller.actForHandle(registration.playerHandle!, { type: 'submit_clue', clue: 'Cosmic', count: 1 }).clue).toEqual({ word: 'Cosmic', count: 1 });
+  });
+
+  it('does not partially mutate when syncing malformed or incoherent state', () => {
+    let saved: unknown = null;
+    const store: StateStore = {
+      load: () => saved,
+      save: (snapshot) => { saved = snapshot; },
+    };
+    const controller = new GameController({ stateStore: store });
+    controller.register('Atlas');
+    const before = controller.snapshot();
+
+    saved = { version: 1, game: {}, roster: {} };
+    expect(controller.syncFromStore()).toBe(false);
+    expect(controller.snapshot()).toEqual(before);
+
+    const mismatched = {
+      ...before.game,
+      players: before.game.players.map((player, index) => index === 0 ? { ...player, id: 'not-the-roster-player' } : player),
+    };
+    saved = { version: 1, game: mismatched, roster: before.roster };
+    expect(controller.syncFromStore()).toBe(false);
+    expect(controller.snapshot()).toEqual(before);
+  });
+
   it('falls back to and replaces corrupt or unknown-version state', () => {
     for (const invalid of [{ version: 2 }, { version: 1, game: {}, roster: {} }, '{not json']) {
       const store = new MemoryStateStore(invalid);

@@ -23,34 +23,21 @@ export class GameController {
   constructor(options: GameControllerOptions = {}) {
     this.stateStore = options.stateStore ?? new LocalStorageStateStore();
     const fallbackRole = options.humanRole ?? 'operative';
-    let restoredGame: Game | undefined;
-    let restoredRoster: Roster | undefined;
-    try {
-      const saved = this.stateStore.load();
-      if (isPersistedState(saved)) {
-        // Hydrate isolated candidates. A malformed or incoherent pair must not
-        // partially mutate either domain object before falling back.
-        const candidateRoster = new Roster(fallbackRole);
-        const candidateGame = new Game(fallbackRole);
-        candidateRoster.restore(saved.roster);
-        candidateGame.restore(saved.game);
-        if (candidateGame.human !== candidateRoster.humanRole) throw new Error('Game and roster roles do not match');
-        const gamePlayers = candidateGame.snapshot().players;
-        const rosterPlayers = candidateRoster.players();
-        if (gamePlayers.length !== rosterPlayers.length || gamePlayers.some((player) => {
-          const rosterPlayer = rosterPlayers.find((candidate) => candidate.id === player.id);
-          return !rosterPlayer || rosterPlayer.displayName !== player.displayName
-            || rosterPlayer.controller !== player.controller || rosterPlayer.team !== player.team || rosterPlayer.role !== player.role;
-        })) throw new Error('Game and roster players do not match');
-        restoredGame = candidateGame;
-        restoredRoster = candidateRoster;
-      }
-    } catch {
-      // Any malformed, unsupported, or incoherent snapshot starts a new session.
-    }
-    this.roster = restoredRoster ?? new Roster(fallbackRole);
-    this.game = restoredGame ?? new Game({ players: this.roster.players(), mode: 'coop', humanRole: this.roster.humanRole, allowSyntheticPlayers: false });
+    const restored = this.validatedCandidates(this.stateStore.load(), fallbackRole);
+    this.roster = restored?.roster ?? new Roster(fallbackRole);
+    this.game = restored?.game ?? new Game({ players: this.roster.players(), mode: 'coop', humanRole: this.roster.humanRole, allowSyntheticPlayers: false });
     this.persist();
+  }
+
+  /** Rehydrate both domains from the latest coherent persisted snapshot without writing it back. */
+  syncFromStore(): boolean {
+    const restored = this.validatedCandidates(this.stateStore.load(), this.roster.humanRole);
+    if (!restored) return false;
+    const next: PersistedState = { version: 1, game: restored.game.snapshot(), roster: restored.roster.snapshot() };
+    if (JSON.stringify(next) === JSON.stringify(this.snapshot())) return false;
+    this.roster.restore(next.roster);
+    this.game.restore(next.game);
+    return true;
   }
 
   getBoard(actor: Actor | string = 'human'): Board { return this.game.getBoard(actor); }
@@ -132,6 +119,28 @@ export class GameController {
   snapshot(): PersistedState { return { version: 1, game: this.game.snapshot(), roster: this.roster.snapshot() }; }
 
   private persist(): void { this.stateStore.save(this.snapshot()); }
+  private validatedCandidates(saved: unknown, fallbackRole: Role): { game: Game; roster: Roster } | undefined {
+    try {
+      if (!isPersistedState(saved)) return undefined;
+      // Hydrate isolated candidates. A malformed or incoherent pair must not
+      // partially mutate either domain object before applying it to this controller.
+      const candidateRoster = new Roster(fallbackRole);
+      const candidateGame = new Game(fallbackRole);
+      candidateRoster.restore(saved.roster);
+      candidateGame.restore(saved.game);
+      if (candidateGame.human !== candidateRoster.humanRole) throw new Error('Game and roster roles do not match');
+      const gamePlayers = candidateGame.snapshot().players;
+      const rosterPlayers = candidateRoster.players();
+      if (gamePlayers.length !== rosterPlayers.length || gamePlayers.some((player) => {
+        const rosterPlayer = rosterPlayers.find((candidate) => candidate.id === player.id);
+        return !rosterPlayer || rosterPlayer.displayName !== player.displayName
+          || rosterPlayer.controller !== player.controller || rosterPlayer.team !== player.team || rosterPlayer.role !== player.role;
+      })) throw new Error('Game and roster players do not match');
+      return { game: candidateGame, roster: candidateRoster };
+    } catch {
+      return undefined;
+    }
+  }
   private requirePlayer(id: string): Player {
     const player = this.roster.playerById(id);
     if (!player) throw new Error('Unknown player');

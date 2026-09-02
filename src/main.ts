@@ -4,7 +4,7 @@ import botIcon from './assets/bot.svg?raw';
 import userIcon from './assets/user.svg?raw';
 import type { Action, Board, Lobby, LobbySeat, Role } from '../shared/types';
 import { actionTitle, cardPresentation } from './board-view';
-import { GameController } from './game-controller';
+import { GameController, LocalStorageStateStore } from './game-controller';
 import { registerWebMCP } from './webmcp';
 import './style.css';
 
@@ -28,12 +28,14 @@ class SemanticSpyApp {
   private previousRevealed = new Set<string>();
   private allowRevealAnimation = false;
   private suppressNextRevealAnimation = false;
+  private storageSyncBound = false;
 
   constructor(private readonly container: HTMLElement, controller = new GameController()) { this.controller = controller; }
 
   async start(): Promise<void> {
     try {
       this.mountShell();
+      this.bindStorageSync();
       await this.refreshHumanBoard();
       await this.refreshLobby();
       const registration = await registerWebMCP({
@@ -49,6 +51,19 @@ class SemanticSpyApp {
       this.mountShell();
       this.render();
     }
+  }
+
+  private bindStorageSync(): void {
+    if (this.storageSyncBound) return;
+    this.storageSyncBound = true;
+    window.addEventListener('storage', (event) => {
+      if (event.key !== LocalStorageStateStore.key) return;
+      this.controller.syncFromStore();
+      void Promise.all([this.refreshHumanBoard(), this.refreshLobby()]).catch((error) => {
+        this.errorMessage = error instanceof Error ? error.message : 'Shared game refresh failed';
+        this.render();
+      });
+    });
   }
 
   private mountShell(): void {
@@ -110,6 +125,7 @@ class SemanticSpyApp {
   }
 
   private async refreshHumanBoard(): Promise<void> {
+    this.controller.syncFromStore();
     const next = this.controller.getBoard('human');
     const previous = this.board;
     const changed = !previous || previous.id !== next.id || previous.revision !== next.revision
@@ -152,6 +168,10 @@ class SemanticSpyApp {
     if (this.busy || !this.board || this.board.status !== 'playing') return;
     this.busy = true; this.errorMessage = ''; this.render();
     try {
+      if (this.controller.syncFromStore()) {
+        await this.refreshHumanBoard();
+        return;
+      }
       this.controller.act('human', action);
       await this.refreshHumanBoard();
     } catch (error) {
@@ -189,6 +209,7 @@ class SemanticSpyApp {
     this.busy = true;
     try {
       this.suppressNextRevealAnimation = true;
+      this.controller.syncFromStore();
       if (_label === 'Next Round') this.controller.nextRound(role);
       else this.controller.newGame(role, mode);
       await this.refreshHumanBoard();
