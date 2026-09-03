@@ -268,6 +268,8 @@ class SemanticSpyApp {
 
   private renderParticipants(): void {
     const board = this.board;
+    this.container.querySelector<HTMLElement>('.participants-bottom')
+      ?.toggleAttribute('hidden', board?.mode === 'coop');
     for (const seat of this.lobby?.seats ?? []) this.renderPlayerSlot(seat, board);
   }
 
@@ -296,7 +298,9 @@ class SemanticSpyApp {
     avatar.innerHTML = player?.controller === 'human' ? userIconMarkup : botIconMarkup;
     const feedback = document.createElement('div'); feedback.className = `player-feedback clue-callout ${slot.classList.contains('player-left') ? 'clue-callout-left' : 'clue-callout-right'}`;
     feedback.dataset.calloutVersion = calloutVersion;
-    if (slot.classList.contains('player-left')) interaction.append(avatar, feedback); else interaction.append(feedback, avatar);
+    const actionControl = document.createElement('div'); actionControl.className = 'player-action';
+    if (slot.classList.contains('player-left')) interaction.append(avatar, feedback, actionControl);
+    else interaction.append(actionControl, feedback, avatar);
     slot.append(copy, interaction);
 
     if (!player || !board) return;
@@ -314,7 +318,7 @@ class SemanticSpyApp {
         feedback.querySelector<HTMLInputElement>('#clue')?.addEventListener('input', (event) => {
           send.hidden = !(event.currentTarget as HTMLInputElement).value;
         });
-        interaction.append(send);
+        actionControl.append(send);
       }
     } else if (ownsCurrentClue && board.clue) this.renderClueBubble(feedback, board.clue.word, board.clue.count, `${player.displayName}'s clue`);
     else if (guesses.length && board.clue) this.renderGuessBubble(feedback, guesses.at(-1)?.word ?? '', guesses.length, board.clue.count);
@@ -322,7 +326,7 @@ class SemanticSpyApp {
       const end = this.createImageButton(`player-end-turn team-${seat.team}`, endTurnUrl, 'End turn');
       end.type = 'button'; end.title = 'End turn'; end.disabled = this.busy;
       end.addEventListener('click', () => { void this.humanAction({ type: 'end_turn' }); });
-      interaction.append(end);
+      actionControl.append(end);
     }
   }
 
@@ -333,6 +337,7 @@ class SemanticSpyApp {
   }
 
   private renderClueBubble(target: HTMLElement, word: string, count: number, label: string): void {
+    this.sizeBubble(target, word);
     const bubble = document.createElement('div'); bubble.className = 'speech-bubble clue-bubble';
     const wordSegment = document.createElement('span'); wordSegment.className = 'bubble-segment bubble-word-segment';
     const kicker = document.createElement('span'); kicker.className = 'clue-kicker'; kicker.textContent = label;
@@ -348,6 +353,7 @@ class SemanticSpyApp {
   }
 
   private renderGuessBubble(target: HTMLElement, word: string, progress: number, total: number): void {
+    this.sizeBubble(target, word);
     const bubble = document.createElement('div'); bubble.className = 'speech-bubble guess-bubble';
     const wordSegment = document.createElement('span'); wordSegment.className = 'bubble-segment bubble-word-segment';
     const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word;
@@ -362,6 +368,7 @@ class SemanticSpyApp {
 
   private renderHumanClueForm(target: HTMLElement, draft = '', countDraft = '1'): void {
     target.classList.add('is-form');
+    this.sizeBubble(target, draft);
     const form = document.createElement('form'); form.id = 'clueForm'; form.className = 'clue-form speech-bubble clue-bubble';
     const wordBubble = document.createElement('span'); wordBubble.className = 'bubble-segment bubble-word-segment clue-word-bubble clue-word-entry';
     const clueLabelNode = document.createElement('label'); clueLabelNode.className = 'sr-only'; clueLabelNode.htmlFor = 'clue'; clueLabelNode.textContent = 'Clue word';
@@ -372,6 +379,7 @@ class SemanticSpyApp {
       const nextCursor = raw.slice(0, cursor).replace(/[^A-Za-z]/g, '').length;
       clue.value = raw.replace(/[^A-Za-z]/g, '').toUpperCase();
       clue.setSelectionRange(nextCursor, nextCursor);
+      this.sizeBubble(target, clue.value);
     });
     wordBubble.append(clueLabelNode, clue);
     const countBubble = document.createElement('span'); countBubble.className = 'bubble-segment bubble-count-segment';
@@ -395,6 +403,11 @@ class SemanticSpyApp {
       if (value && Number.isInteger(number) && number > 0) void this.humanAction({ type: 'submit_clue', clue: value, count: number });
     });
     target.append(form);
+  }
+
+  private sizeBubble(target: HTMLElement, word: string): void {
+    const width = Math.min(310, Math.max(260, 200 + word.length * 8));
+    target.style.setProperty('--bubble-width', `${width}px`);
   }
 
   private renderGrid(): void {

@@ -34,6 +34,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .table-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
 .game-table { container-type: inline-size; display: grid; grid-template-columns: minmax(0, 1fr) clamp(9px, 1.5cqw, 14px); grid-template-rows: auto auto auto; column-gap: clamp(6px, 1.25cqw, 12px); width: 100%; min-width: 500px; padding: 0 2px; }
 .participants-row { grid-column: 1; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(16px, 5vw, 48px); min-height: 82px; }
+.participants-row[hidden] { display: none; }
 .participants-top { grid-row: 1; align-items: end; margin-bottom: 14px; }
 .participants-bottom { grid-row: 3; align-items: start; margin-top: 14px; }
 .player-slot { --team-color: var(--team-blue); width: min(100%, 410px); min-width: 0; display: grid; gap: 6px; }
@@ -56,8 +57,9 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .player-slot.is-inactive-team { opacity: 1; }
 .player-slot.is-active { opacity: 1; }
 
-.player-feedback { position: relative; width: clamp(210px, 29vw, 280px); min-width: 0; height: 48px; flex: 0 1 clamp(210px, 29vw, 280px); display: flex; align-items: center; }
+.player-feedback { position: relative; width: var(--bubble-width, 260px); max-width: 100%; min-width: 0; height: 48px; flex: 0 1 var(--bubble-width, 260px); display: flex; align-items: center; }
 .player-feedback:empty { visibility: hidden; }
+.player-action { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; }
 .speech-bubble { --bubble-background: var(--team-color); position: relative; isolation: isolate; width: 100%; height: 48px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 0; padding: 0; border: 0; outline: 0; color: var(--ink); background: transparent; }
 .speech-bubble::before { content: ''; position: absolute; z-index: 0; top: 50%; width: 12px; height: 16px; background: var(--bubble-background); transform: translateY(-50%); }
 .clue-callout-left .speech-bubble::before { left: -9px; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
