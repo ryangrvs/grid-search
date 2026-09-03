@@ -5,6 +5,9 @@ import userIcon from './assets/user.svg?raw';
 import logoUrl from './assets/logo.svg';
 import roleSwapUrl from './assets/arrow-left-right.svg';
 import sendUrl from './assets/send-horizontal.svg';
+import chevronUpUrl from './assets/chevron-up.svg';
+import chevronDownUrl from './assets/chevron-down.svg';
+import endTurnUrl from './assets/octagon-x.svg';
 import type { Action, Board, Lobby, LobbySeat, Role } from '../shared/types';
 import { cardPresentation } from './board-view';
 import { GameController, LocalStorageStateStore } from './game-controller';
@@ -94,10 +97,12 @@ class SemanticSpyApp {
               </div>
             </div>
           </div>
-          <div class="board-meta-row"><span id="boardMeta" class="small">Waiting for board…</span><span id="gameStatus" class="game-status" hidden></span></div>
         </section>
         <section class="below-board" aria-label="Game controls">
-          <div class="round-controls"><button id="nextRound" class="button secondary">Next Round</button><button id="newGame" class="button">New Game</button></div>
+          <div class="round-controls">
+            <span id="gameStatus" class="game-status" hidden></span>
+            <div class="round-buttons"><button id="nextRound" class="button secondary">Next Round</button><button id="newGame" class="button">New Game</button></div>
+          </div>
           <section class="history-panel"><div class="section-head"><h2>Game History</h2></div><div id="log" class="log"></div></section>
           <p id="mcpMessage" class="sr-only"></p>
         </section>
@@ -228,17 +233,14 @@ class SemanticSpyApp {
     if (!this.container.querySelector('#boardGrid')) return;
     const board = this.board;
     const status = this.container.querySelector('#gameStatus');
-    const metaRow = this.container.querySelector('#gameStatus')?.parentElement;
     if (status) {
       const winningTeam = board?.winner ? `${board.winner[0].toUpperCase()}${board.winner.slice(1)} wins` : '';
       const outcome = !board || board.status === 'playing' ? '' : winningTeam || 'Game over';
       status.textContent = outcome;
       status.toggleAttribute('hidden', !outcome);
-      metaRow?.classList.toggle('is-terminal', Boolean(outcome));
-      metaRow?.classList.toggle('team-blue', Boolean(outcome && board?.winner === 'blue'));
-      metaRow?.classList.toggle('team-red', Boolean(outcome && board?.winner === 'red'));
+      status.classList.toggle('team-blue', Boolean(outcome && board?.winner === 'blue'));
+      status.classList.toggle('team-red', Boolean(outcome && board?.winner === 'red'));
     }
-    const meta = this.container.querySelector('#boardMeta'); if (meta) meta.textContent = !board ? 'Waiting for board…' : board.status !== 'playing' ? 'Round complete' : board.phase === 'guess' ? `${board.guessesRemaining} guess${board.guessesRemaining === 1 ? '' : 'es'} left` : '';
     this.renderScores();
     this.renderParticipants();
     this.renderGrid(); this.renderLog(); this.renderControls();
@@ -303,20 +305,24 @@ class SemanticSpyApp {
     const ownsCurrentClue = board.phase === 'guess' && board.clue && player.team === board.activePlayer.team && player.role === 'spymaster';
     const isActiveHumanOperative = active && player.controller === 'human' && player.role === 'operative' && board.phase === 'guess';
     if (isActiveHumanSpymaster) {
-      this.renderHumanClueForm(feedback, clueDraft, countDraft, slot.classList.contains('player-left'));
+      this.renderHumanClueForm(feedback, clueDraft, countDraft);
       const clueForm = feedback.querySelector<HTMLFormElement>('.clue-form');
       if (clueForm) {
         const send = this.createImageButton('clue-submit', sendUrl, 'Send clue');
         send.type = 'submit'; send.setAttribute('form', clueForm.id); send.disabled = this.busy;
-        if (slot.classList.contains('player-left')) send.classList.add('is-mirrored');
-        if (slot.classList.contains('player-left')) interaction.insertBefore(send, avatar); else interaction.append(send);
+        send.hidden = !clueDraft;
+        feedback.querySelector<HTMLInputElement>('#clue')?.addEventListener('input', (event) => {
+          send.hidden = !(event.currentTarget as HTMLInputElement).value;
+        });
+        interaction.append(send);
       }
     } else if (ownsCurrentClue && board.clue) this.renderClueBubble(feedback, board.clue.word, board.clue.count, `${player.displayName}'s clue`);
     else if (guesses.length && board.clue) this.renderGuessBubble(feedback, guesses.at(-1)?.word ?? '', guesses.length, board.clue.count);
     if (isActiveHumanOperative) {
-      const end = document.createElement('button'); end.className = `player-end-turn button team-${seat.team}`; end.type = 'button'; end.textContent = 'End Turn'; end.disabled = this.busy;
+      const end = this.createImageButton(`player-end-turn team-${seat.team}`, endTurnUrl, 'End turn');
+      end.type = 'button'; end.title = 'End turn'; end.disabled = this.busy;
       end.addEventListener('click', () => { void this.humanAction({ type: 'end_turn' }); });
-      if (slot.classList.contains('player-left')) interaction.insertBefore(end, avatar); else interaction.append(end);
+      interaction.append(end);
     }
   }
 
@@ -354,22 +360,35 @@ class SemanticSpyApp {
     target.append(bubble);
   }
 
-  private renderHumanClueForm(target: HTMLElement, draft = '', countDraft = '1', left = false): void {
+  private renderHumanClueForm(target: HTMLElement, draft = '', countDraft = '1'): void {
     target.classList.add('is-form');
     const form = document.createElement('form'); form.id = 'clueForm'; form.className = 'clue-form speech-bubble clue-bubble';
     const wordBubble = document.createElement('span'); wordBubble.className = 'bubble-segment bubble-word-segment clue-word-bubble clue-word-entry';
     const clueLabelNode = document.createElement('label'); clueLabelNode.className = 'sr-only'; clueLabelNode.htmlFor = 'clue'; clueLabelNode.textContent = 'Clue word';
-    const clue = document.createElement('input'); clue.id = 'clue'; clue.name = 'clue'; clue.maxLength = 40; clue.autocomplete = 'off'; clue.placeholder = 'Enter your clue...'; clue.value = draft;
+    const clue = document.createElement('input'); clue.id = 'clue'; clue.name = 'clue'; clue.maxLength = 40; clue.autocomplete = 'off'; clue.placeholder = 'Enter your clue...'; clue.value = draft.toUpperCase();
+    clue.addEventListener('input', () => {
+      const raw = clue.value;
+      const cursor = clue.selectionStart ?? raw.length;
+      const nextCursor = raw.slice(0, cursor).replace(/[^A-Za-z]/g, '').length;
+      clue.value = raw.replace(/[^A-Za-z]/g, '').toUpperCase();
+      clue.setSelectionRange(nextCursor, nextCursor);
+    });
     wordBubble.append(clueLabelNode, clue);
     const countBubble = document.createElement('span'); countBubble.className = 'bubble-segment bubble-count-segment';
     const countLabel = document.createElement('label'); countLabel.className = 'clue-count clue-count-entry'; countLabel.htmlFor = 'count'; countLabel.setAttribute('aria-label', 'Clue count');
     const count = document.createElement('input'); count.id = 'count'; count.name = 'count'; count.type = 'number'; count.min = '1'; count.max = '9'; count.inputMode = 'numeric'; count.value = countDraft || '1'; count.setAttribute('aria-label', 'Clue count');
     countLabel.append(count);
-    countBubble.append(countLabel);
+    const steppers = document.createElement('span'); steppers.className = 'count-steppers';
+    const increment = this.createImageButton('count-step', chevronUpUrl, 'Increase clue count'); increment.type = 'button';
+    const decrement = this.createImageButton('count-step', chevronDownUrl, 'Decrease clue count'); decrement.type = 'button';
+    increment.disabled = this.busy; decrement.disabled = this.busy;
+    increment.addEventListener('click', () => { count.stepUp(); });
+    decrement.addEventListener('click', () => { count.stepDown(); });
+    steppers.append(increment, decrement);
+    countBubble.append(steppers, countLabel);
     clue.disabled = this.busy; count.disabled = this.busy;
     form.setAttribute('role', 'group'); form.setAttribute('aria-label', 'Enter clue and count');
     form.append(wordBubble, countBubble);
-    if (left) form.classList.add('is-player-left');
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = clue.value.trim(); const number = Number(count.value);
