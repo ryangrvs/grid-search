@@ -1,12 +1,12 @@
 # Issue 006: Four-Player Board UI
 
-Status: planned
+Status: complete
 
 Depends on: Issues 003 and 004
 
 ## Outcome
 
-The registered 2×2 roster follows the players into a readable four-position game layout.
+The registered 2×2 roster follows the players into a readable four-position Versus layout, while Co-op shows only the participating Blue pair.
 
 ## Scope
 
@@ -19,10 +19,13 @@ The registered 2×2 roster follows the players into a readable four-position gam
 - Add a clear active-player treatment using team color.
 - Adapt the four positions for narrow screens without shrinking the word board excessively.
 - Keep clue and guess feedback working with four players.
+- Keep the board-screen controls minimal: Next Round automatically switches roles,
+  while the role picker remains in the New Game lobby.
+- Keep Game History below the board, with one team-colored row per action.
 
 ## Acceptance
 
-- All four players remain visually associated with the board.
+- All four players remain visually associated with a Versus board; Co-op omits the inactive Red player row.
 - Role changes update labels without moving people.
 - Exactly one active player is visually clear.
 - Existing board interaction remains usable on desktop and a narrow viewport.

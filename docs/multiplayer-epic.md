@@ -1,6 +1,6 @@
 # Multiplayer and Multi-Agent Epic
 
-Status: decisions and scope for the next iteration. This is an epic because it changes player registration, game rules, WebMCP tools, and the board UI. Detailed implementation tasks will be written separately.
+Status: active. The foundational work through Issue 006 is complete; Issue 007 is next. This is an epic because it changes player registration, game rules, WebMCP tools, and the board UI.
 
 ## Goal
 

@@ -1,6 +1,6 @@
 # Issue 005: Multiplayer WebMCP Tooling
 
-Status: planned
+Status: complete
 
 Depends on: Issues 003 and 004
 
@@ -18,9 +18,13 @@ Agents receive concise static guidance, authorized dynamic state, and self-conta
 - Remove the instruction to call a read immediately after a successful action.
 - Do not expose `expectedRevision` in MVP tool inputs.
 - Keep imperative `document.modelContext.registerTool()` registration.
+- Rehydrate a tab-local controller from the shared origin snapshot before every
+  dynamic WebMCP read or mutation so separately owned agent tabs stay current.
 
 ## Acceptance
 
 - An action result contains enough state for the caller to decide whether to act again.
 - An agent learns role/name changes from state or action results.
 - Tool schemas and WebMCP tests cover only the essential happy and rejection paths.
+- A tool registered in one tab observes a move persisted by another tab without
+  requiring a page refresh.

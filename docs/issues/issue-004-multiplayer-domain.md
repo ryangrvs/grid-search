@@ -1,6 +1,6 @@
 # Issue 004: Multiplayer Game Domain
 
-Status: planned
+Status: complete
 
 Depends on: Issue 000A
 
