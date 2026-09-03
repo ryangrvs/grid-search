@@ -327,6 +327,7 @@ class SemanticSpyApp {
       end.type = 'button'; end.title = 'End turn'; end.disabled = this.busy;
       end.addEventListener('click', () => { void this.humanAction({ type: 'end_turn' }); });
       actionControl.append(end);
+      if (slot.classList.contains('player-left') && guesses.length === 0) interaction.insertBefore(actionControl, feedback);
     }
   }
 
@@ -406,7 +407,9 @@ class SemanticSpyApp {
   }
 
   private sizeBubble(target: HTMLElement, word: string): void {
-    const width = Math.min(310, Math.max(260, 200 + word.length * 8));
+    const slot = target.closest('.player-slot');
+    if (slot?.querySelector('.avatar-human')) slot.classList.add('has-wide-feedback');
+    const width = Math.min(400, Math.max(320, 260 + word.length * 8));
     target.style.setProperty('--bubble-width', `${width}px`);
   }
 
