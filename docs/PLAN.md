@@ -16,7 +16,7 @@ Work in dependency order unless an issue explicitly says it can overlap.
 | [000](issues/issue-000-local-only-browser-runtime.md) | Remove the backend and move to a local-only browser runtime | Complete | 003 |
 | [000A](issues/issue-000a-persist-browser-game-state.md) | Persist one coherent browser game snapshot | Complete | 000 |
 | [004](issues/issue-004-multiplayer-domain.md) | One-engine Blue-only and Blue-vs-Red rules | Complete | 000A |
-| [005](issues/issue-005-webmcp-tooling.md) | `get_context`, `get_state`, and player-scoped actions | Complete | 003, 004 |
+| [005](issues/issue-005-webmcp-tooling.md) | `learn_rules`, `get_state`, and player-scoped actions | Complete | 003, 004 |
 | [006](issues/issue-006-four-player-ui.md) | Four-player board layout and turn presentation | Complete | 003, 004 |
 | [007](issues/issue-007-education-outcomes.md) | How to Play, turn counter, and finish modal | Planned | 004, 006 |
 | [008](issues/issue-008-live-verification.md) | Lightweight checks and complete multi-agent match | Planned | 005, 006, 007 |

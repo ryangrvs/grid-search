@@ -168,13 +168,14 @@ SemanticSpy currently registers tools imperatively with `document.modelContext.r
 
 The WebMCP specification remains a draft. The current draft's imperative callback receives the input object and execution options; it does not provide a stable Codex thread identity. That is why `register` and `playerHandle` remain necessary. [WebMCP draft](https://webmachinelearning.github.io/webmcp/)
 
-### `get_context`
+### `learn_rules` and `get_context`
 
 ```ts
+learn_rules({}) -> { context: string }
 get_context({}) -> { context: string }
 ```
 
-> Decision: `get_context` is static and unscoped. It contains a short rules-and-workflow prompt, similar in spirit to a small game-specific `AGENTS.md`.
+> Decision: `learn_rules` is the player-facing static, unscoped rules-and-workflow tool. `get_context` returns the same content as a compatibility alias.
 
 It should explain:
 

@@ -6,11 +6,11 @@ Depends on: Issues 003 and 004
 
 ## Outcome
 
-Agents receive concise static guidance, authorized dynamic state, and self-contained action results without redundant reads.
+Agents receive concise static guidance, authorized dynamic state, and self-contained action results without redundant reads. `learn_rules` is the player-facing rules entry point; `get_context` remains available as a compatibility alias.
 
 ## Scope
 
-- Add unscoped `get_context({})` returning a short static rules/workflow string.
+- Add unscoped `learn_rules({})` returning a short static rules/workflow string, while retaining `get_context({})` as an alias.
 - Replace `get_board` with `get_state({ playerHandle })`.
 - Add `playerHandle` to clue, guess, and end-turn inputs.
 - Reject unknown handles, wrong roles, wrong phases, and out-of-turn calls.

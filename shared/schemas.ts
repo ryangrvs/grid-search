@@ -1,5 +1,8 @@
 /** Strict input schemas shared by browser WebMCP registration and tests. */
 export const schemas = {
+  learn_rules: {
+    type: 'object' as const, properties: {}, required: [], additionalProperties: false,
+  },
   get_context: {
     type: 'object' as const, properties: {}, required: [], additionalProperties: false,
   },

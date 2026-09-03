@@ -15,8 +15,9 @@ describe('browser WebMCP adapter', () => {
     const registerTool = vi.fn(async (tool: Parameters<ModelContext['registerTool']>[0]) => { registered[tool.name] = tool; });
     const controller = new GameController({ stateStore: new MemoryStateStore() });
     const result = await registerWebMCP({ controller, host: { registerTool } });
-    expect(result).toMatchObject({ supported: true, registered: ['get_context', 'get_state', 'submit_clue', 'make_guess', 'end_turn', 'register'] });
-    expect(registerTool).toHaveBeenCalledTimes(6);
+    expect(result).toMatchObject({ supported: true, registered: ['learn_rules', 'get_context', 'get_state', 'submit_clue', 'make_guess', 'end_turn', 'register'] });
+    expect(registerTool).toHaveBeenCalledTimes(7);
+    expect(registered.learn_rules.inputSchema).toMatchObject({ additionalProperties: false, required: [] });
     expect(registered.get_context.inputSchema).toMatchObject({ additionalProperties: false, required: [] });
     expect(registered.get_state.inputSchema).toMatchObject({ additionalProperties: false, required: ['playerHandle'] });
     expect(registered.submit_clue.inputSchema).toMatchObject({ additionalProperties: false, required: ['playerHandle', 'clue', 'count'] });
@@ -26,6 +27,7 @@ describe('browser WebMCP adapter', () => {
     const context = await registered.get_context.execute({});
     expect(context.context).toContain('playerHandle');
     expect(context.context).not.toContain('ANCHOR');
+    expect(await registered.learn_rules.execute({})).toEqual(context);
 
     const registration = await registered.register.execute({ name: 'Atlas' });
     const handle = registration.playerHandle;

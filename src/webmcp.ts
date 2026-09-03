@@ -26,7 +26,7 @@ export interface WebMCPRegistration {
   reason?: string;
 }
 
-const toolNames = ['get_context', 'get_state', 'submit_clue', 'make_guess', 'end_turn', 'register'] as const;
+const toolNames = ['learn_rules', 'get_context', 'get_state', 'submit_clue', 'make_guess', 'end_turn', 'register'] as const;
 
 function modelContextHost(): ModelContext | undefined {
   const doc = globalThis.document as (Document & { modelContext?: ModelContext }) | undefined;
@@ -73,7 +73,7 @@ function registrationArgs(args: Record<string, unknown>): { name: string; team?:
 }
 
 const CONTEXT = [
-  'SemanticSpy objective: work with your teammate to find all your team’s words; in Versus, finish before the other team, and never choose the assassin.',
+  'Grid Search objective: work with your teammate to find all your team’s words; in Versus, finish before the other team, and never choose the assassin.',
   'Register with register({ name, team?, role? }) and keep the returned playerHandle. If you lose context, register again with the same name to recover; this rotates the old handle.',
   'Call get_state({ playerHandle }) before your first action and whenever another player has acted. On your active turn, a spymaster submits one clue and count; the count is the exact maximum number of guesses with no bonus or carryover. An operative may guess or end_turn; an opponent or innocent word ends the guessing turn.',
   'Successful actions return authoritative state and can be followed by another action when it remains legal. Use only alignments present in your role-filtered state, and do not reveal secrets through table talk.',
@@ -95,8 +95,17 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
 
   const tools = [
     {
+      name: 'learn_rules',
+      description: 'Learn the concise Grid Search objective, rules, and tool workflow.',
+      inputSchema: schemas.learn_rules as JsonSchema,
+      execute: async (args: Record<string, unknown>) => {
+        requireEmptyArgs(args ?? {});
+        return { context: CONTEXT };
+      },
+    },
+    {
       name: 'get_context',
-      description: 'Read the concise, static SemanticSpy objective, rules, and tool workflow.',
+      description: 'Read the concise, static Grid Search objective, rules, and tool workflow.',
       inputSchema: schemas.get_context as JsonSchema,
       execute: async (args: Record<string, unknown>) => {
         requireEmptyArgs(args ?? {});

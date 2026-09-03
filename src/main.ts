@@ -29,6 +29,7 @@ class SemanticSpyApp {
   private lobby: Lobby | null = null;
   private lobbyOpen = false;
   private lobbyRole: Role = 'operative';
+  private lobbyMode: 'co-op' | 'versus' = 'co-op';
   private busy = false;
   private errorMessage = '';
   private mcpMessage = 'Checking WebMCP support…';
@@ -110,13 +111,16 @@ class SemanticSpyApp {
       <div id="lobbyModal" class="lobby-modal" role="dialog" aria-modal="true" aria-labelledby="lobbyTitle" hidden>
         <div class="lobby-dialog">
           <div class="section-head"><h2 id="lobbyTitle">New Game</h2><button id="closeLobby" class="icon-button" type="button" aria-label="Close lobby">×</button></div>
-          <p class="hint">Agents join with <code>/register</code> tool. One agent for Co-op, three agents for Versus mode.</p>
+          <p class="hint">Agents can use <code>/register</code> to join and <code>/learn_rules</code> to understand the game.</p>
           <div class="lobby-stage">
             <div id="lobbyGrid" class="lobby-grid" aria-label="Player registration lobby"></div>
-            <button id="startCoop" class="button lobby-start lobby-start-coop" type="button" disabled>Start Co-op</button>
-            <button id="startVersus" class="button lobby-start lobby-start-versus" type="button" disabled>Start Versus</button>
           </div>
-          <p id="lobbyMessage" class="notice lobby-count" aria-live="polite"></p>
+          <div class="lobby-controls">
+            <div class="lobby-setting"><span class="lobby-control-label">Players</span><div class="player-count-control" role="group" aria-label="Number of players"><button id="playerCount2" type="button" aria-label="Two-player Co-op">2</button><button id="playerCount4" type="button" aria-label="Four-player Versus">4</button></div></div>
+            <div class="lobby-setting"><span class="lobby-control-label">Roles</span><button id="roleSwap" class="role-swap" type="button"><img src="${roleSwapUrl}" alt="" aria-hidden="true"></button></div>
+            <p id="lobbyMessage" class="notice lobby-count" aria-live="polite"></p>
+            <button id="startGame" class="button lobby-start" type="button" disabled>Start</button>
+          </div>
         </div>
       </div>
       <p id="errorMessage" class="notice error" role="alert" aria-live="assertive"></p>`;
@@ -128,8 +132,10 @@ class SemanticSpyApp {
     this.container.querySelector<HTMLButtonElement>('#newGame')?.addEventListener('click', () => { void this.newGame(); });
     this.container.querySelector<HTMLButtonElement>('#nextRound')?.addEventListener('click', () => { void this.nextRound(); });
     this.container.querySelector<HTMLButtonElement>('#closeLobby')?.addEventListener('click', () => { this.lobbyOpen = false; this.render(); });
-    this.container.querySelector<HTMLButtonElement>('#startCoop')?.addEventListener('click', () => { void this.startLobby('co-op'); });
-    this.container.querySelector<HTMLButtonElement>('#startVersus')?.addEventListener('click', () => { void this.startLobby('versus'); });
+    this.container.querySelector<HTMLButtonElement>('#playerCount2')?.addEventListener('click', () => { this.lobbyMode = 'co-op'; this.renderLobby(); });
+    this.container.querySelector<HTMLButtonElement>('#playerCount4')?.addEventListener('click', () => { this.lobbyMode = 'versus'; this.renderLobby(); });
+    this.container.querySelector<HTMLButtonElement>('#roleSwap')?.addEventListener('click', () => { this.toggleLobbyRole(); });
+    this.container.querySelector<HTMLButtonElement>('#startGame')?.addEventListener('click', () => { void this.startLobby(); });
   }
 
   private async refreshHumanBoard(): Promise<void> {
@@ -159,8 +165,11 @@ class SemanticSpyApp {
 
   private async refreshLobby(): Promise<void> {
     const next = this.controller.lobby();
+    const previousOccupied = this.lobby?.seats.filter((seat) => seat.player).length ?? 0;
+    const nextOccupied = next.seats.filter((seat) => seat.player).length;
     const changed = JSON.stringify(next) !== JSON.stringify(this.lobby);
     this.lobby = next;
+    if (this.lobbyOpen && previousOccupied < 3 && nextOccupied >= 3) this.lobbyMode = 'versus';
     if (changed) this.render();
   }
 
@@ -193,11 +202,14 @@ class SemanticSpyApp {
     this.lobbyRole = this.board?.humanRole ?? 'operative';
     try {
       await this.refreshLobby();
+      const occupied = this.lobby?.seats.filter((seat) => seat.player).length ?? 0;
+      this.lobbyMode = occupied >= 3 ? 'versus' : 'co-op';
     } catch (error) { this.errorMessage = error instanceof Error ? error.message : 'Could not load the lobby.'; }
     this.render();
   }
 
-  private async startLobby(mode: 'co-op' | 'versus'): Promise<void> {
+  private async startLobby(): Promise<void> {
+    const mode = this.lobbyMode;
     if (!this.lobby || (mode === 'co-op' && !this.lobby.canStartCoop) || (mode === 'versus' && !this.lobby.canStartVersus)) return;
     this.lobbyOpen = false;
     await this.resetGame(`Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.', this.lobbyRole, mode);
@@ -290,7 +302,7 @@ class SemanticSpyApp {
     slot.replaceChildren();
 
     const copy = document.createElement('div'); copy.className = 'player-copy';
-    const name = document.createElement('strong'); name.className = 'player-name'; name.textContent = player?.displayName ?? 'Open seat';
+    const name = document.createElement('strong'); name.className = 'player-name'; name.textContent = player?.displayName ?? 'Open';
     const role = document.createElement('span'); role.className = 'player-role'; role.textContent = seat.role;
     copy.append(name, role);
     const interaction = document.createElement('div'); interaction.className = 'player-interaction';
@@ -484,7 +496,7 @@ class SemanticSpyApp {
       const card = document.createElement('article');
       card.className = `lobby-card team-${seat.team}${seat.player ? '' : ' is-open'}`;
       const icon = document.createElement('div'); icon.className = 'lobby-avatar'; icon.innerHTML = seat.player?.controller === 'human' ? userIconMarkup : botIconMarkup;
-      const name = document.createElement('strong'); name.textContent = seat.player?.displayName ?? 'Open seat';
+      const name = document.createElement('strong'); name.textContent = seat.player?.displayName ?? 'Open';
       const previewRole: Role = index % 2 === 0
         ? this.lobbyRole
         : (this.lobbyRole === 'operative' ? 'spymaster' : 'operative');
@@ -492,17 +504,21 @@ class SemanticSpyApp {
       const roleRow = document.createElement('div'); roleRow.className = 'lobby-role-row'; roleRow.append(role);
       const copy = document.createElement('div'); copy.className = 'lobby-card-copy'; copy.append(name, roleRow);
       card.append(icon, copy);
-      if (seat.player?.controller === 'human') {
-        const switchRole = this.createImageButton('role-swap', roleSwapUrl, `Switch to ${previewRole === 'operative' ? 'spymaster' : 'operative'}`);
-        switchRole.addEventListener('click', () => { this.toggleLobbyRole(); });
-        roleRow.append(switchRole);
-      }
       grid.append(card);
     }
-    const startCoop = this.container.querySelector<HTMLButtonElement>('#startCoop');
-    const startVersus = this.container.querySelector<HTMLButtonElement>('#startVersus');
-    if (startCoop) { startCoop.hidden = false; startCoop.disabled = !this.lobby?.canStartCoop || this.busy; }
-    if (startVersus) { startVersus.hidden = false; startVersus.disabled = !this.lobby?.canStartVersus || this.busy; }
+    const two = this.container.querySelector<HTMLButtonElement>('#playerCount2');
+    const four = this.container.querySelector<HTMLButtonElement>('#playerCount4');
+    const roleSwap = this.container.querySelector<HTMLButtonElement>('#roleSwap');
+    const start = this.container.querySelector<HTMLButtonElement>('#startGame');
+    const coopSelected = this.lobbyMode === 'co-op';
+    if (two) { two.classList.toggle('is-selected', coopSelected); two.setAttribute('aria-pressed', String(coopSelected)); }
+    if (four) { four.classList.toggle('is-selected', !coopSelected); four.setAttribute('aria-pressed', String(!coopSelected)); }
+    if (roleSwap) roleSwap.setAttribute('aria-label', `Switch to ${this.lobbyRole === 'operative' ? 'spymaster' : 'operative'}`);
+    const canStart = coopSelected ? this.lobby?.canStartCoop : this.lobby?.canStartVersus;
+    if (start) {
+      start.disabled = !canStart || this.busy;
+      start.title = canStart ? '' : coopSelected ? 'Two Blue players are required' : 'All four players are required';
+    }
     const message = this.container.querySelector('#lobbyMessage');
     if (message) message.textContent = this.lobby ? `${this.lobby.seats.filter((seat) => seat.player).length} of 4 seats occupied` : 'Loading lobby…';
   }
