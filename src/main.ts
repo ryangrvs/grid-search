@@ -79,12 +79,10 @@ class SemanticSpyApp {
                 <article class="player-slot player-left" data-seat-id="blue-top-left"></article>
                 <article class="player-slot player-right" data-seat-id="blue-top-right"></article>
               </div>
-              <div class="board-stage">
-                <div id="boardGrid" class="board-grid" aria-label="SemanticSpy word cards"></div>
-                <div class="scorebar" aria-label="Team progress">
-                  <div id="blueSquares" class="score-squares score-squares-blue" aria-label="Blue team progress"></div>
-                  <div id="redSquares" class="score-squares score-squares-red" aria-label="Red team progress"></div>
-                </div>
+              <div id="boardGrid" class="board-grid" aria-label="SemanticSpy word cards"></div>
+              <div class="scorebar" aria-label="Team progress">
+                <div id="blueSquares" class="score-squares score-squares-blue" aria-label="Blue team progress"></div>
+                <div id="redSquares" class="score-squares score-squares-red" aria-label="Red team progress"></div>
               </div>
               <div class="participants-row participants-bottom" aria-label="Red team players">
                 <article class="player-slot player-left" data-seat-id="red-bottom-left"></article>
@@ -302,43 +300,48 @@ class SemanticSpyApp {
 
   private renderClueBubble(target: HTMLElement, word: string, count: number, label: string): void {
     const bubble = document.createElement('div'); bubble.className = 'speech-bubble clue-bubble';
+    const wordSegment = document.createElement('span'); wordSegment.className = 'bubble-segment bubble-word-segment';
     const kicker = document.createElement('span'); kicker.className = 'clue-kicker'; kicker.textContent = label;
     const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word.toUpperCase();
-    const divider = document.createElement('span'); divider.className = 'bubble-divider'; divider.setAttribute('aria-hidden', 'true'); divider.textContent = '—';
+    const countSegment = document.createElement('span'); countSegment.className = 'bubble-segment bubble-count-segment';
     const countNode = document.createElement('span'); countNode.className = 'clue-count'; countNode.textContent = String(count);
     bubble.setAttribute('role', 'status');
     bubble.setAttribute('aria-label', `${label}: ${word}, clue count ${count}`);
     countNode.setAttribute('aria-label', `Clue count ${count}`);
-    bubble.append(kicker, wordNode, divider, countNode);
+    wordSegment.append(kicker, wordNode); countSegment.append(countNode);
+    bubble.append(wordSegment, countSegment);
     target.append(bubble);
   }
 
   private renderGuessBubble(target: HTMLElement, word: string, progress: number, total: number): void {
     const bubble = document.createElement('div'); bubble.className = 'speech-bubble guess-bubble';
+    const wordSegment = document.createElement('span'); wordSegment.className = 'bubble-segment bubble-word-segment';
     const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word;
-    const divider = document.createElement('span'); divider.className = 'bubble-divider'; divider.setAttribute('aria-hidden', 'true'); divider.textContent = '—';
+    const countSegment = document.createElement('span'); countSegment.className = 'bubble-segment bubble-count-segment';
     const progressNode = document.createElement('span'); progressNode.className = 'clue-count guess-progress'; progressNode.textContent = `${progress}/${total}`;
     bubble.setAttribute('role', 'status');
     bubble.setAttribute('aria-label', `${word}, guess ${progress} of ${total}`);
-    bubble.append(wordNode, divider, progressNode);
+    wordSegment.append(wordNode); countSegment.append(progressNode);
+    bubble.append(wordSegment, countSegment);
     target.append(bubble);
   }
 
   private renderHumanClueForm(target: HTMLElement, draft = '', countDraft = '1'): void {
     target.classList.add('is-form');
     const form = document.createElement('form'); form.id = 'clueForm'; form.className = 'clue-form speech-bubble clue-bubble';
-    const wordBubble = document.createElement('span'); wordBubble.className = 'clue-word-bubble clue-word-entry';
+    const wordBubble = document.createElement('span'); wordBubble.className = 'bubble-segment bubble-word-segment clue-word-bubble clue-word-entry';
     const clueLabelNode = document.createElement('label'); clueLabelNode.className = 'sr-only'; clueLabelNode.htmlFor = 'clue'; clueLabelNode.textContent = 'Clue word';
     const clue = document.createElement('input'); clue.id = 'clue'; clue.name = 'clue'; clue.maxLength = 40; clue.autocomplete = 'off'; clue.placeholder = 'One word'; clue.value = draft;
     wordBubble.append(clueLabelNode, clue);
-    const countBubble = document.createElement('label'); countBubble.className = 'clue-count clue-count-entry'; countBubble.htmlFor = 'count'; countBubble.setAttribute('aria-label', 'Clue count');
+    const countBubble = document.createElement('span'); countBubble.className = 'bubble-segment bubble-count-segment';
+    const countLabel = document.createElement('label'); countLabel.className = 'clue-count clue-count-entry'; countLabel.htmlFor = 'count'; countLabel.setAttribute('aria-label', 'Clue count');
     const count = document.createElement('input'); count.id = 'count'; count.name = 'count'; count.type = 'number'; count.min = '1'; count.max = '9'; count.inputMode = 'numeric'; count.value = countDraft || '1'; count.setAttribute('aria-label', 'Clue count');
-    countBubble.append(count);
-    const divider = document.createElement('span'); divider.className = 'bubble-divider'; divider.setAttribute('aria-hidden', 'true'); divider.textContent = '—';
-    const submit = document.createElement('button'); submit.className = 'clue-submit'; submit.type = 'submit'; submit.textContent = 'Send';
+    countLabel.append(count);
+    const submit = document.createElement('button'); submit.className = 'clue-submit'; submit.type = 'submit'; submit.textContent = '→'; submit.setAttribute('aria-label', 'Send clue');
+    countBubble.append(countLabel, submit);
     clue.disabled = this.busy; count.disabled = this.busy; submit.disabled = this.busy;
     form.setAttribute('role', 'group'); form.setAttribute('aria-label', 'Enter clue and count');
-    form.append(wordBubble, divider, countBubble, submit);
+    form.append(wordBubble, countBubble);
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = clue.value.trim(); const number = Number(count.value);
