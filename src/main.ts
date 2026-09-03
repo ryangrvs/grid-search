@@ -221,11 +221,15 @@ class SemanticSpyApp {
     if (!this.container.querySelector('#boardGrid')) return;
     const board = this.board;
     const status = this.container.querySelector('#gameStatus');
+    const metaRow = this.container.querySelector('#gameStatus')?.parentElement;
     if (status) {
       const winningTeam = board?.winner ? `${board.winner[0].toUpperCase()}${board.winner.slice(1)} wins` : '';
-      const outcome = board?.status === 'playing' ? '' : winningTeam || 'Game over';
+      const outcome = !board || board.status === 'playing' ? '' : winningTeam || 'Game over';
       status.textContent = outcome;
       status.toggleAttribute('hidden', !outcome);
+      metaRow?.classList.toggle('is-terminal', Boolean(outcome));
+      metaRow?.classList.toggle('team-blue', Boolean(outcome && board?.winner === 'blue'));
+      metaRow?.classList.toggle('team-red', Boolean(outcome && board?.winner === 'red'));
     }
     const actionHeading = this.container.querySelector('#actionTitle'); if (actionHeading) actionHeading.textContent = board ? actionTitle(board) : 'Your turn';
     const meta = this.container.querySelector('#boardMeta'); if (meta) meta.textContent = !board ? 'Waiting for board…' : board.status !== 'playing' ? 'Round complete' : board.phase === 'guess' ? `${board.guessesRemaining} guess${board.guessesRemaining === 1 ? '' : 'es'} left` : '';
@@ -299,7 +303,7 @@ class SemanticSpyApp {
   private renderClueBubble(target: HTMLElement, word: string, count: number, label: string): void {
     const bubble = document.createElement('div'); bubble.className = 'speech-bubble clue-bubble';
     const kicker = document.createElement('span'); kicker.className = 'clue-kicker'; kicker.textContent = label;
-    const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word;
+    const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word.toUpperCase();
     const divider = document.createElement('span'); divider.className = 'bubble-divider'; divider.setAttribute('aria-hidden', 'true'); divider.textContent = '—';
     const countNode = document.createElement('span'); countNode.className = 'clue-count'; countNode.textContent = String(count);
     bubble.setAttribute('role', 'status');
@@ -368,6 +372,7 @@ class SemanticSpyApp {
     for (const card of this.board.cards) {
       const presentation = cardPresentation(this.board, card, this.previousRevealed, this.allowRevealAnimation);
       const button = document.createElement('button'); button.className = `card ${presentation.tone}`; button.type = 'button';
+      if (card.word.length >= 9) button.classList.add('word-long');
       button.append(document.createTextNode(card.word));
       button.setAttribute('aria-label', presentation.badge ? `${card.word} — ${presentation.badge}` : card.word);
       if (presentation.badge) button.title = presentation.badge;
