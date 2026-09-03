@@ -2,8 +2,11 @@
 
 import botIcon from './assets/bot.svg?raw';
 import userIcon from './assets/user.svg?raw';
+import logoUrl from './assets/logo.svg';
+import roleSwapUrl from './assets/arrow-left-right.svg';
+import sendUrl from './assets/send-horizontal.svg';
 import type { Action, Board, Lobby, LobbySeat, Role } from '../shared/types';
-import { actionTitle, cardPresentation } from './board-view';
+import { cardPresentation } from './board-view';
 import { GameController, LocalStorageStateStore } from './game-controller';
 import { registerWebMCP } from './webmcp';
 import './style.css';
@@ -22,6 +25,7 @@ class SemanticSpyApp {
   private board: Board | null = null;
   private lobby: Lobby | null = null;
   private lobbyOpen = false;
+  private lobbyRole: Role = 'operative';
   private busy = false;
   private errorMessage = '';
   private mcpMessage = 'Checking WebMCP support…';
@@ -69,17 +73,17 @@ class SemanticSpyApp {
   private mountShell(): void {
     this.container.innerHTML = `
       <header class="topbar">
-        <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">SemanticSpy</span></div>
+        <div class="brand"><img class="brand-logo" src="${logoUrl}" alt="" aria-hidden="true"><span class="brand-name">Grid Search</span></div>
       </header>
       <div class="game-shell">
-        <section class="playing-region" aria-label="SemanticSpy playing area">
+        <section class="playing-region" aria-label="Grid Search playing area">
           <div class="table-scroll">
             <div class="game-table">
               <div class="participants-row participants-top" aria-label="Blue team players">
                 <article class="player-slot player-left" data-seat-id="blue-top-left"></article>
                 <article class="player-slot player-right" data-seat-id="blue-top-right"></article>
               </div>
-              <div id="boardGrid" class="board-grid" aria-label="SemanticSpy word cards"></div>
+              <div id="boardGrid" class="board-grid" aria-label="Grid Search word cards"></div>
               <div class="scorebar" aria-label="Team progress">
                 <div id="blueSquares" class="score-squares score-squares-blue" aria-label="Blue team progress"></div>
                 <div id="redSquares" class="score-squares score-squares-red" aria-label="Red team progress"></div>
@@ -93,7 +97,6 @@ class SemanticSpyApp {
           <div class="board-meta-row"><span id="boardMeta" class="small">Waiting for board…</span><span id="gameStatus" class="game-status" hidden></span></div>
         </section>
         <section class="below-board" aria-label="Game controls">
-          <section id="actionPanel" class="action-panel"><div class="section-head"><h2 id="actionTitle">Your turn</h2></div><div id="actionBody" class="action-body"></div></section>
           <div class="round-controls"><button id="nextRound" class="button secondary">Next Round</button><button id="newGame" class="button">New Game</button></div>
           <section class="history-panel"><div class="section-head"><h2>Game History</h2></div><div id="log" class="log"></div></section>
           <p id="mcpMessage" class="sr-only"></p>
@@ -102,11 +105,13 @@ class SemanticSpyApp {
       <div id="lobbyModal" class="lobby-modal" role="dialog" aria-modal="true" aria-labelledby="lobbyTitle" hidden>
         <div class="lobby-dialog">
           <div class="section-head"><h2 id="lobbyTitle">New Game</h2><button id="closeLobby" class="icon-button" type="button" aria-label="Close lobby">×</button></div>
-          <p class="hint">Register agents into the four seats before starting a match.</p>
-          <div id="lobbyGrid" class="lobby-grid" aria-label="Player registration lobby"></div>
-          <div class="field"><label for="lobbyRoleSelect">Your Blue role</label><select id="lobbyRoleSelect"><option value="operative">Operative</option><option value="spymaster">Spymaster</option></select></div>
-          <div class="lobby-actions"><button id="startCoop" class="button" type="button" disabled>Start Co-op</button><button id="startVersus" class="button secondary" type="button" disabled>Start Versus</button></div>
-          <p id="lobbyMessage" class="notice" aria-live="polite"></p>
+          <p class="hint">Agents join with <code>/register</code> tool. One agent for Co-op, three agents for Versus mode.</p>
+          <div class="lobby-stage">
+            <div id="lobbyGrid" class="lobby-grid" aria-label="Player registration lobby"></div>
+            <button id="startCoop" class="button lobby-start lobby-start-coop" type="button" disabled>Start Co-op</button>
+            <button id="startVersus" class="button lobby-start lobby-start-versus" type="button" disabled>Start Versus</button>
+          </div>
+          <p id="lobbyMessage" class="notice lobby-count" aria-live="polite"></p>
         </div>
       </div>
       <p id="errorMessage" class="notice error" role="alert" aria-live="assertive"></p>`;
@@ -180,10 +185,9 @@ class SemanticSpyApp {
 
   private async newGame(): Promise<void> {
     this.lobbyOpen = true;
+    this.lobbyRole = this.board?.humanRole ?? 'operative';
     try {
       await this.refreshLobby();
-      const roleSelect = this.container.querySelector<HTMLSelectElement>('#lobbyRoleSelect');
-      if (roleSelect && this.board) roleSelect.value = this.board.humanRole;
     } catch (error) { this.errorMessage = error instanceof Error ? error.message : 'Could not load the lobby.'; }
     this.render();
   }
@@ -191,8 +195,13 @@ class SemanticSpyApp {
   private async startLobby(mode: 'co-op' | 'versus'): Promise<void> {
     if (!this.lobby || (mode === 'co-op' && !this.lobby.canStartCoop) || (mode === 'versus' && !this.lobby.canStartVersus)) return;
     this.lobbyOpen = false;
-    const roleSelect = this.container.querySelector<HTMLSelectElement>('#lobbyRoleSelect');
-    await this.resetGame(`Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.', roleSelect?.value, mode);
+    await this.resetGame(`Start ${mode}`, 'Deal a completely fresh field of 25 words? The current match will be replaced.', this.lobbyRole, mode);
+  }
+
+  private toggleLobbyRole(): void {
+    if (!this.lobbyOpen) return;
+    this.lobbyRole = this.lobbyRole === 'operative' ? 'spymaster' : 'operative';
+    this.renderLobby();
   }
 
   private async nextRound(): Promise<void> {
@@ -229,11 +238,10 @@ class SemanticSpyApp {
       metaRow?.classList.toggle('team-blue', Boolean(outcome && board?.winner === 'blue'));
       metaRow?.classList.toggle('team-red', Boolean(outcome && board?.winner === 'red'));
     }
-    const actionHeading = this.container.querySelector('#actionTitle'); if (actionHeading) actionHeading.textContent = board ? actionTitle(board) : 'Your turn';
     const meta = this.container.querySelector('#boardMeta'); if (meta) meta.textContent = !board ? 'Waiting for board…' : board.status !== 'playing' ? 'Round complete' : board.phase === 'guess' ? `${board.guessesRemaining} guess${board.guessesRemaining === 1 ? '' : 'es'} left` : '';
     this.renderScores();
     this.renderParticipants();
-    this.renderGrid(); this.renderLog(); this.renderAction(); this.renderControls();
+    this.renderGrid(); this.renderLog(); this.renderControls();
     this.renderLobby();
     const error = this.container.querySelector('#errorMessage'); if (error) error.textContent = this.errorMessage;
     const mcp = this.container.querySelector('#mcpMessage'); if (mcp) mcp.textContent = this.mcpMessage;
@@ -293,9 +301,29 @@ class SemanticSpyApp {
     const guesses = board.turnGuesses.filter((guess) => guess.playerId === player.id);
     const isActiveHumanSpymaster = active && player.controller === 'human' && player.role === 'spymaster' && board.phase === 'clue';
     const ownsCurrentClue = board.phase === 'guess' && board.clue && player.team === board.activePlayer.team && player.role === 'spymaster';
-    if (isActiveHumanSpymaster) this.renderHumanClueForm(feedback, clueDraft, countDraft);
-    else if (ownsCurrentClue && board.clue) this.renderClueBubble(feedback, board.clue.word, board.clue.count, `${player.displayName}'s clue`);
+    const isActiveHumanOperative = active && player.controller === 'human' && player.role === 'operative' && board.phase === 'guess';
+    if (isActiveHumanSpymaster) {
+      this.renderHumanClueForm(feedback, clueDraft, countDraft, slot.classList.contains('player-left'));
+      const clueForm = feedback.querySelector<HTMLFormElement>('.clue-form');
+      if (clueForm) {
+        const send = this.createImageButton('clue-submit', sendUrl, 'Send clue');
+        send.type = 'submit'; send.setAttribute('form', clueForm.id); send.disabled = this.busy;
+        if (slot.classList.contains('player-left')) send.classList.add('is-mirrored');
+        if (slot.classList.contains('player-left')) interaction.insertBefore(send, avatar); else interaction.append(send);
+      }
+    } else if (ownsCurrentClue && board.clue) this.renderClueBubble(feedback, board.clue.word, board.clue.count, `${player.displayName}'s clue`);
     else if (guesses.length && board.clue) this.renderGuessBubble(feedback, guesses.at(-1)?.word ?? '', guesses.length, board.clue.count);
+    if (isActiveHumanOperative) {
+      const end = document.createElement('button'); end.className = `player-end-turn button team-${seat.team}`; end.type = 'button'; end.textContent = 'End Turn'; end.disabled = this.busy;
+      end.addEventListener('click', () => { void this.humanAction({ type: 'end_turn' }); });
+      if (slot.classList.contains('player-left')) interaction.insertBefore(end, avatar); else interaction.append(end);
+    }
+  }
+
+  private createImageButton(className: string, src: string, label: string): HTMLButtonElement {
+    const button = document.createElement('button'); button.className = className; button.setAttribute('aria-label', label);
+    const image = document.createElement('img'); image.src = src; image.alt = ''; image.setAttribute('aria-hidden', 'true');
+    button.append(image); return button;
   }
 
   private renderClueBubble(target: HTMLElement, word: string, count: number, label: string): void {
@@ -326,22 +354,22 @@ class SemanticSpyApp {
     target.append(bubble);
   }
 
-  private renderHumanClueForm(target: HTMLElement, draft = '', countDraft = '1'): void {
+  private renderHumanClueForm(target: HTMLElement, draft = '', countDraft = '1', left = false): void {
     target.classList.add('is-form');
     const form = document.createElement('form'); form.id = 'clueForm'; form.className = 'clue-form speech-bubble clue-bubble';
     const wordBubble = document.createElement('span'); wordBubble.className = 'bubble-segment bubble-word-segment clue-word-bubble clue-word-entry';
     const clueLabelNode = document.createElement('label'); clueLabelNode.className = 'sr-only'; clueLabelNode.htmlFor = 'clue'; clueLabelNode.textContent = 'Clue word';
-    const clue = document.createElement('input'); clue.id = 'clue'; clue.name = 'clue'; clue.maxLength = 40; clue.autocomplete = 'off'; clue.placeholder = 'One word'; clue.value = draft;
+    const clue = document.createElement('input'); clue.id = 'clue'; clue.name = 'clue'; clue.maxLength = 40; clue.autocomplete = 'off'; clue.placeholder = 'Enter your clue...'; clue.value = draft;
     wordBubble.append(clueLabelNode, clue);
     const countBubble = document.createElement('span'); countBubble.className = 'bubble-segment bubble-count-segment';
     const countLabel = document.createElement('label'); countLabel.className = 'clue-count clue-count-entry'; countLabel.htmlFor = 'count'; countLabel.setAttribute('aria-label', 'Clue count');
     const count = document.createElement('input'); count.id = 'count'; count.name = 'count'; count.type = 'number'; count.min = '1'; count.max = '9'; count.inputMode = 'numeric'; count.value = countDraft || '1'; count.setAttribute('aria-label', 'Clue count');
     countLabel.append(count);
-    const submit = document.createElement('button'); submit.className = 'clue-submit'; submit.type = 'submit'; submit.textContent = '→'; submit.setAttribute('aria-label', 'Send clue');
-    countBubble.append(countLabel, submit);
-    clue.disabled = this.busy; count.disabled = this.busy; submit.disabled = this.busy;
+    countBubble.append(countLabel);
+    clue.disabled = this.busy; count.disabled = this.busy;
     form.setAttribute('role', 'group'); form.setAttribute('aria-label', 'Enter clue and count');
     form.append(wordBubble, countBubble);
+    if (left) form.classList.add('is-player-left');
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = clue.value.trim(); const number = Number(count.value);
@@ -393,23 +421,6 @@ class SemanticSpyApp {
     this.allowRevealAnimation = false;
   }
 
-  private renderAction(): void {
-    const panel = this.container.querySelector<HTMLElement>('#actionPanel');
-    const body = this.container.querySelector<HTMLElement>('#actionBody'); if (!body || !panel) return;
-    const board = this.board;
-    const humanActive = board?.status === 'playing' && board.activePlayer.controller === 'human';
-    const canEndTurn = humanActive && board.humanRole === 'operative' && board.phase === 'guess';
-    panel.hidden = !canEndTurn;
-    body.replaceChildren();
-    if (canEndTurn) {
-      const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = 'Choose a card, or stop guessing.';
-      const row = document.createElement('div'); row.className = 'action-row';
-      const end = document.createElement('button'); end.id = 'endTurn'; end.className = 'button secondary'; end.type = 'button'; end.textContent = 'End Turn'; end.disabled = this.busy;
-      row.append(end); body.append(hint, row);
-      body.querySelector('#endTurn')?.addEventListener('click', () => { void this.humanAction({ type: 'end_turn' }); });
-    }
-  }
-
   private renderLog(): void {
     const log = this.container.querySelector('#log'); if (!log) return;
     log.replaceChildren();
@@ -434,19 +445,29 @@ class SemanticSpyApp {
     if (!modal || !grid) return;
     modal.toggleAttribute('hidden', !this.lobbyOpen);
     grid.replaceChildren();
-    for (const seat of this.lobby?.seats ?? []) {
+    for (const [index, seat] of (this.lobby?.seats ?? []).entries()) {
       const card = document.createElement('article');
       card.className = `lobby-card team-${seat.team}${seat.player ? '' : ' is-open'}`;
       const icon = document.createElement('div'); icon.className = 'lobby-avatar'; icon.innerHTML = seat.player?.controller === 'human' ? userIconMarkup : botIconMarkup;
       const name = document.createElement('strong'); name.textContent = seat.player?.displayName ?? 'Open seat';
-      const role = document.createElement('span'); role.textContent = seat.player?.role ?? seat.role;
-      card.append(icon, name, role);
+      const previewRole: Role = index % 2 === 0
+        ? this.lobbyRole
+        : (this.lobbyRole === 'operative' ? 'spymaster' : 'operative');
+      const role = document.createElement('span'); role.textContent = previewRole;
+      const roleRow = document.createElement('div'); roleRow.className = 'lobby-role-row'; roleRow.append(role);
+      const copy = document.createElement('div'); copy.className = 'lobby-card-copy'; copy.append(name, roleRow);
+      card.append(icon, copy);
+      if (seat.player?.controller === 'human') {
+        const switchRole = this.createImageButton('role-swap', roleSwapUrl, `Switch to ${previewRole === 'operative' ? 'spymaster' : 'operative'}`);
+        switchRole.addEventListener('click', () => { this.toggleLobbyRole(); });
+        roleRow.append(switchRole);
+      }
       grid.append(card);
     }
     const startCoop = this.container.querySelector<HTMLButtonElement>('#startCoop');
     const startVersus = this.container.querySelector<HTMLButtonElement>('#startVersus');
-    if (startCoop) { startCoop.hidden = !this.lobby?.canStartCoop; startCoop.disabled = !this.lobby?.canStartCoop || this.busy; }
-    if (startVersus) { startVersus.hidden = !this.lobby?.canStartVersus; startVersus.disabled = !this.lobby?.canStartVersus || this.busy; }
+    if (startCoop) { startCoop.hidden = false; startCoop.disabled = !this.lobby?.canStartCoop || this.busy; }
+    if (startVersus) { startVersus.hidden = false; startVersus.disabled = !this.lobby?.canStartVersus || this.busy; }
     const message = this.container.querySelector('#lobbyMessage');
     if (message) message.textContent = this.lobby ? `${this.lobby.seats.filter((seat) => seat.player).length} of 4 seats occupied` : 'Loading lobby…';
   }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="103" height="103" viewBox="0 0 103 103" role="img" aria-label="SemanticSpy logo">
+  <rect width="103" height="103" rx="12" fill="#fff"/>
+  <g>
+    <rect x="10" y="10" width="15" height="15" rx="2" fill="#5F75FF"/><rect x="27" y="10" width="15" height="15" rx="2" fill="#4C4E54"/><rect x="44" y="10" width="15" height="15" rx="2" fill="#E4E4E4"/><rect x="61" y="10" width="15" height="15" rx="2" fill="#FF7260"/><rect x="78" y="10" width="15" height="15" rx="2" fill="#5F75FF"/>
+    <rect x="10" y="27" width="15" height="15" rx="2" fill="#FF7260"/><rect x="27" y="27" width="15" height="15" rx="2" fill="#5F75FF"/><rect x="44" y="27" width="15" height="15" rx="2" fill="#FF7260"/><rect x="61" y="27" width="15" height="15" rx="2" fill="#5F75FF"/><rect x="78" y="27" width="15" height="15" rx="2" fill="#E4E4E4"/>
+    <rect x="10" y="44" width="15" height="15" rx="2" fill="#E4E4E4"/><rect x="27" y="44" width="15" height="15" rx="2" fill="#FF7260"/><rect x="44" y="44" width="15" height="15" rx="2" fill="#E4E4E4"/><rect x="61" y="44" width="15" height="15" rx="2" fill="#5F75FF"/><rect x="78" y="44" width="15" height="15" rx="2" fill="#FF7260"/>
+    <rect x="10" y="61" width="15" height="15" rx="2" fill="#5F75FF"/><rect x="27" y="61" width="15" height="15" rx="2" fill="#5F75FF"/><rect x="44" y="61" width="15" height="15" rx="2" fill="#E4E4E4"/><rect x="61" y="61" width="15" height="15" rx="2" fill="#5F75FF"/><rect x="78" y="61" width="15" height="15" rx="2" fill="#FF7260"/>
+    <rect x="10" y="78" width="15" height="15" rx="2" fill="#E4E4E4"/><rect x="27" y="78" width="15" height="15" rx="2" fill="#5F75FF"/><rect x="44" y="78" width="15" height="15" rx="2" fill="#FF7260"/><rect x="61" y="78" width="15" height="15" rx="2" fill="#FF7260"/><rect x="78" y="78" width="15" height="15" rx="2" fill="#E4E4E4"/>
+  </g>
+</svg>
