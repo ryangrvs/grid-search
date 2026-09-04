@@ -47,8 +47,8 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .player-role { color: var(--muted); font-size: 10px; line-height: 1.2; letter-spacing: .07em; text-transform: uppercase; }
 .player-interaction { min-width: 0; height: 48px; display: flex; align-items: center; gap: 10px; }
 .player-right .player-interaction { justify-content: flex-end; }
-.player-end-turn, .clue-submit { width: 28px; height: 28px; min-width: 28px; min-height: 28px; flex: 0 0 28px; display: grid; place-items: center; padding: 2px; border: 0; color: var(--ink); background: transparent; line-height: 1; }
-.player-end-turn img, .clue-submit img { width: 24px; height: 24px; display: block; }
+.clue-submit { width: 28px; height: 28px; min-width: 28px; min-height: 28px; flex: 0 0 28px; display: grid; place-items: center; padding: 2px; border: 0; color: var(--ink); background: transparent; line-height: 1; }
+.clue-submit img { width: 24px; height: 24px; display: block; }
 .avatar { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; color: var(--ink); }
 .avatar svg { width: 48px; height: 48px; display: block; }
 .player-slot.is-active .avatar { color: var(--team-color); }
@@ -59,7 +59,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .player-slot.is-inactive-team { opacity: 1; }
 .player-slot.is-active { opacity: 1; }
 
-.player-feedback { position: relative; width: var(--bubble-width, 320px); max-width: 100%; min-width: 0; height: 48px; flex: 0 1 var(--bubble-width, 320px); display: flex; align-items: center; }
+.player-feedback { position: relative; width: var(--bubble-width, 220px); max-width: 100%; min-width: 0; height: 48px; flex: 0 1 var(--bubble-width, 220px); display: flex; align-items: center; }
 .player-feedback:empty { visibility: hidden; }
 .player-action { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; }
 .speech-bubble { --bubble-background: var(--team-color); position: relative; isolation: isolate; width: 100%; height: 48px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 0; padding: 0; border: 0; outline: 0; color: var(--ink); background: transparent; }
@@ -134,7 +134,7 @@ h2 { margin: 0; color: var(--ink); font-size: 14px; }
 
 .button { min-height: 36px; border: 1.5px solid var(--ink); border-radius: 8px; padding: 7px 13px; color: #fff; background: var(--ink); font-size: 12px; font-weight: 700; }
 .button:hover:not(:disabled) { background: #45484e; }
-.clue-submit:hover:not(:disabled), .player-end-turn:hover:not(:disabled), .count-step:hover:not(:disabled) { background: transparent; }
+.clue-submit:hover:not(:disabled), .count-step:hover:not(:disabled) { background: transparent; }
 .button.secondary { color: var(--ink); background: #fff; }
 input { width: 100%; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; padding: 7px 9px; outline: none; }
 input:focus, button:focus-visible { border-color: var(--team-blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--team-blue) 22%, transparent); outline: none; }
@@ -170,9 +170,9 @@ input:focus, button:focus-visible { border-color: var(--team-blue); box-shadow: 
 .player-count-control { display: inline-flex; overflow: hidden; border: 1.5px solid var(--ink); border-radius: 8px; }
 .player-count-control button, .role-swap { width: 34px; height: 32px; display: inline-grid; place-items: center; padding: 0; border: 0; color: var(--ink); background: #fff; font-size: 12px; font-weight: 700; }
 .player-count-control button + button { border-left: 1.5px solid var(--ink); }
-.player-count-control button.is-selected, .role-swap { background: var(--team-blue); }
+.player-count-control button.is-selected, .role-swap { color: #fff; background: var(--ink); }
 .role-swap { border: 1.5px solid var(--ink); border-radius: 8px; }
-.role-swap img, .role-swap svg { width: 18px; height: 18px; display: block; }
+.role-swap img, .role-swap svg { width: 18px; height: 18px; display: block; filter: brightness(0) invert(1); }
 .lobby-start { min-width: 72px; white-space: nowrap; }
 .lobby-start:disabled { opacity: 1; color: #d5d6d8; border-color: #6f7277; background: #8b8d91; }
 .lobby-count { margin: 0; color: var(--muted); text-align: right; }

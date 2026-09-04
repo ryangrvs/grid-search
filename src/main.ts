@@ -7,7 +7,6 @@ import roleSwapUrl from './assets/arrow-left-right.svg';
 import sendUrl from './assets/send-horizontal.svg';
 import chevronUpUrl from './assets/chevron-up.svg';
 import chevronDownUrl from './assets/chevron-down.svg';
-import endTurnUrl from './assets/octagon-x.svg';
 import type { Action, Board, Lobby, LobbySeat, Role } from '../shared/types';
 import { cardPresentation } from './board-view';
 import { GameController, LocalStorageStateStore } from './game-controller';
@@ -319,7 +318,6 @@ class SemanticSpyApp {
     const guesses = board.turnGuesses.filter((guess) => guess.playerId === player.id);
     const isActiveHumanSpymaster = active && player.controller === 'human' && player.role === 'spymaster' && board.phase === 'clue';
     const ownsCurrentClue = board.phase === 'guess' && board.clue && player.team === board.activePlayer.team && player.role === 'spymaster';
-    const isActiveHumanOperative = active && player.controller === 'human' && player.role === 'operative' && board.phase === 'guess';
     if (isActiveHumanSpymaster) {
       this.renderHumanClueForm(feedback, clueDraft, countDraft);
       const clueForm = feedback.querySelector<HTMLFormElement>('.clue-form');
@@ -334,13 +332,7 @@ class SemanticSpyApp {
       }
     } else if (ownsCurrentClue && board.clue) this.renderClueBubble(feedback, board.clue.word, board.clue.count, `${player.displayName}'s clue`);
     else if (guesses.length && board.clue) this.renderGuessBubble(feedback, guesses.at(-1)?.word ?? '', guesses.length, board.clue.count);
-    if (isActiveHumanOperative) {
-      const end = this.createImageButton(`player-end-turn team-${seat.team}`, endTurnUrl, 'End turn');
-      end.type = 'button'; end.title = 'End turn'; end.disabled = this.busy;
-      end.addEventListener('click', () => { void this.humanAction({ type: 'end_turn' }); });
-      actionControl.append(end);
-      if (slot.classList.contains('player-left') && guesses.length === 0) interaction.insertBefore(actionControl, feedback);
-    }
+    if (!actionControl.childElementCount) actionControl.remove();
   }
 
   private createImageButton(className: string, src: string, label: string): HTMLButtonElement {
@@ -421,7 +413,9 @@ class SemanticSpyApp {
   private sizeBubble(target: HTMLElement, word: string): void {
     const slot = target.closest('.player-slot');
     if (slot?.querySelector('.avatar-human')) slot.classList.add('has-wide-feedback');
-    const width = Math.min(400, Math.max(320, 260 + word.length * 8));
+    const width = word
+      ? Math.min(400, Math.max(148, 96 + word.length * 9))
+      : 220;
     target.style.setProperty('--bubble-width', `${width}px`);
   }
 
