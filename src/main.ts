@@ -7,6 +7,7 @@ import roleSwapUrl from './assets/arrow-left-right.svg';
 import sendUrl from './assets/send-horizontal.svg';
 import chevronUpUrl from './assets/chevron-up.svg';
 import chevronDownUrl from './assets/chevron-down.svg';
+import tailIcon from './assets/tail.svg?raw';
 import type { Action, Board, Lobby, LobbySeat, Role } from '../shared/types';
 import { cardPresentation } from './board-view';
 import { GameController, LocalStorageStateStore } from './game-controller';
@@ -21,6 +22,7 @@ function inlineIcon(raw: string, label: string): string {
 
 const botIconMarkup = inlineIcon(botIcon, 'Agent');
 const userIconMarkup = inlineIcon(userIcon, 'You');
+const tailIconMarkup = tailIcon.replace('<svg ', '<svg class="speech-bubble__tail" aria-hidden="true" focusable="false" ');
 
 class SemanticSpyApp {
   private readonly controller: GameController;
@@ -344,6 +346,7 @@ class SemanticSpyApp {
   private renderClueBubble(target: HTMLElement, word: string, count: number, label: string): void {
     this.sizeBubble(target, word);
     const bubble = document.createElement('div'); bubble.className = 'speech-bubble clue-bubble';
+    const surface = document.createElement('div'); surface.className = 'speech-bubble__surface';
     const wordSegment = document.createElement('span'); wordSegment.className = 'bubble-segment bubble-word-segment';
     const kicker = document.createElement('span'); kicker.className = 'clue-kicker'; kicker.textContent = label;
     const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word.toUpperCase();
@@ -353,13 +356,16 @@ class SemanticSpyApp {
     bubble.setAttribute('aria-label', `${label}: ${word}, clue count ${count}`);
     countNode.setAttribute('aria-label', `Clue count ${count}`);
     wordSegment.append(kicker, wordNode); countSegment.append(countNode);
-    bubble.append(wordSegment, countSegment);
+    surface.append(wordSegment, countSegment);
+    bubble.append(surface);
+    bubble.insertAdjacentHTML('beforeend', tailIconMarkup);
     target.append(bubble);
   }
 
   private renderGuessBubble(target: HTMLElement, word: string, progress: number, total: number): void {
     this.sizeBubble(target, word);
     const bubble = document.createElement('div'); bubble.className = 'speech-bubble guess-bubble';
+    const surface = document.createElement('div'); surface.className = 'speech-bubble__surface';
     const wordSegment = document.createElement('span'); wordSegment.className = 'bubble-segment bubble-word-segment';
     const wordNode = document.createElement('span'); wordNode.className = 'clue-word'; wordNode.textContent = word;
     const countSegment = document.createElement('span'); countSegment.className = 'bubble-segment bubble-count-segment';
@@ -367,7 +373,9 @@ class SemanticSpyApp {
     bubble.setAttribute('role', 'status');
     bubble.setAttribute('aria-label', `${word}, guess ${progress} of ${total}`);
     wordSegment.append(wordNode); countSegment.append(progressNode);
-    bubble.append(wordSegment, countSegment);
+    surface.append(wordSegment, countSegment);
+    bubble.append(surface);
+    bubble.insertAdjacentHTML('beforeend', tailIconMarkup);
     target.append(bubble);
   }
 
@@ -375,6 +383,7 @@ class SemanticSpyApp {
     target.classList.add('is-form');
     this.sizeBubble(target, draft);
     const form = document.createElement('form'); form.id = 'clueForm'; form.className = 'clue-form speech-bubble clue-bubble';
+    const surface = document.createElement('div'); surface.className = 'speech-bubble__surface';
     const wordBubble = document.createElement('span'); wordBubble.className = 'bubble-segment bubble-word-segment clue-word-bubble clue-word-entry';
     const clueLabelNode = document.createElement('label'); clueLabelNode.className = 'sr-only'; clueLabelNode.htmlFor = 'clue'; clueLabelNode.textContent = 'Clue word';
     const clue = document.createElement('input'); clue.id = 'clue'; clue.name = 'clue'; clue.maxLength = 40; clue.autocomplete = 'off'; clue.placeholder = 'Enter your clue...'; clue.value = draft.toUpperCase();
@@ -401,7 +410,9 @@ class SemanticSpyApp {
     countBubble.append(steppers, countLabel);
     clue.disabled = this.busy; count.disabled = this.busy;
     form.setAttribute('role', 'group'); form.setAttribute('aria-label', 'Enter clue and count');
-    form.append(wordBubble, countBubble);
+    surface.append(wordBubble, countBubble);
+    form.append(surface);
+    form.insertAdjacentHTML('beforeend', tailIconMarkup);
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = clue.value.trim(); const number = Number(count.value);
