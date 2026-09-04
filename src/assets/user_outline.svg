@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="3.886 3.179 19.657 23.098">
+  <circle cx="13.714" cy="7.429" r="4.25" fill="var(--avatar-fill)" stroke="var(--avatar-stroke)" stroke-width="0.8" />
+  <path d="M4.286 25.877V23.305C4.286 18.098 8.507 13.877 13.714 13.877C18.921 13.877 23.143 18.098 23.143 23.305V25.877H4.286Z" fill="var(--avatar-fill)" stroke="var(--avatar-stroke)" stroke-width="0.8" />
+  <circle cx="12.062" cy="7.49" r="0.84" fill="var(--avatar-detail)" />
+  <circle cx="15.328" cy="7.49" r="0.84" fill="var(--avatar-detail)" />
+</svg>

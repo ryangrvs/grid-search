@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="1.2 -20.8 45.6 39.6">
+  <path d="M2 0L6 0L6 10L2 10L2 0ZM22 -20L26 -20L26 -12L36 -12C39.314 -12 42 -9.314 42 -6L42 12C42 15.314 39.314 18 36 18L12 18C8.686 18 6 15.314 6 12L6 -6C6 -9.314 8.686 -12 12 -12L22 -12L22 -20ZM42 0L46 0L46 10L42 10L42 0Z" fill="var(--avatar-fill)" stroke="var(--avatar-stroke)" stroke-width="1.55" />
+  <circle cx="18" cy="3" r="2.5" fill="var(--avatar-detail)" />
+  <circle cx="30" cy="3" r="2.5" fill="var(--avatar-detail)" />
+</svg>

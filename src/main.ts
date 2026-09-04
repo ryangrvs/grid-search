@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
-import botIcon from './assets/bot.svg?raw';
-import userIcon from './assets/user.svg?raw';
+import botIcon from './assets/bot_outline.svg?raw';
+import userIcon from './assets/user_outline.svg?raw';
 import logoUrl from './assets/logo.svg';
 import roleSwapUrl from './assets/arrow-left-right.svg';
 import sendUrl from './assets/send-horizontal.svg';

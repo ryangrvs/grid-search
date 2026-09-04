@@ -47,14 +47,18 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .player-role { color: var(--muted); font-size: 10px; line-height: 1.2; letter-spacing: .07em; text-transform: uppercase; }
 .player-interaction { min-width: 0; height: 48px; display: flex; align-items: center; gap: 10px; }
 .player-right .player-interaction { justify-content: flex-end; }
+.player-left .avatar + .player-feedback { margin-left: 20px; }
+.player-right .player-feedback + .avatar { margin-left: 20px; }
 .clue-submit { width: 28px; height: 28px; min-width: 28px; min-height: 28px; flex: 0 0 28px; display: grid; place-items: center; padding: 2px; border: 0; color: var(--ink); background: transparent; line-height: 1; }
 .clue-submit img { width: 24px; height: 24px; display: block; }
+.avatar, .lobby-avatar { --avatar-fill: var(--ink); --avatar-stroke: var(--ink); --avatar-detail: #fff; }
 .avatar { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; color: var(--ink); }
 .avatar svg { width: 48px; height: 48px; display: block; }
-.player-slot.is-active .avatar { color: var(--team-color); }
+.player-slot.is-active .avatar { --avatar-fill: var(--team-color); --avatar-detail: var(--ink); color: var(--team-color); }
 .player-slot.is-active .player-name { color: var(--ink); }
 .player-slot.is-active .player-role { color: var(--muted); font-weight: inherit; }
 .player-slot.is-open { opacity: 1; color: var(--muted); }
+.player-slot.is-open .avatar { --avatar-fill: var(--muted); --avatar-stroke: var(--muted); }
 .player-slot.is-open .avatar, .player-slot.is-open .player-name, .player-slot.is-open .player-role { color: var(--muted); }
 .player-slot.is-inactive-team { opacity: 1; }
 .player-slot.is-active { opacity: 1; }
@@ -64,8 +68,8 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .player-action { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; }
 .speech-bubble { --bubble-fill: var(--team-color); position: relative; isolation: isolate; width: 100%; height: 48px; min-width: 0; padding: 0; border: 0; outline: 0; color: var(--ink); background: transparent; }
 .speech-bubble__surface { position: relative; z-index: 1; width: 100%; height: 48px; display: grid; grid-template-columns: minmax(0, 1fr) 48px; overflow: hidden; border: var(--stroke) solid var(--ink); border-radius: var(--radius); background: var(--bubble-fill); }
-.speech-bubble__tail { position: absolute; z-index: 2; top: 50%; left: -20px; width: 22px; height: 28px; display: block; transform: translateY(-50%); }
-.clue-callout-right .speech-bubble__tail { right: -20px; left: auto; transform: translateY(-50%) scaleX(-1); }
+.speech-bubble__tail { position: absolute; z-index: 2; top: 50%; left: -18px; width: 22px; height: 28px; display: block; transform: translateY(-50%); }
+.clue-callout-right .speech-bubble__tail { right: -18px; left: auto; transform: translateY(-50%) scaleX(-1); }
 .bubble-segment { min-width: 0; height: 100%; display: flex; align-items: center; justify-content: center; padding: 0 10px; border: 0; outline: 0; background: transparent; }
 .bubble-count-segment { padding: 0 7px; }
 .clue-kicker { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -156,12 +160,13 @@ input:focus, button:focus-visible { border-color: var(--team-blue); box-shadow: 
 .lobby-card:nth-child(even) .lobby-avatar { grid-column: 2; grid-row: 1; }
 .lobby-card:nth-child(even) .lobby-card-copy { grid-column: 1; grid-row: 1; align-items: end; }
 .lobby-avatar { width: 42px; height: 42px; display: grid; place-items: center; }
-.lobby-avatar svg { width: 42px; height: 42px; stroke-width: 1.35; }
+.lobby-avatar svg { width: 42px; height: 42px; }
 .lobby-card-copy { min-width: 0; display: grid; gap: 3px; }
 .lobby-card strong, .lobby-card span { min-width: 0; overflow-wrap: anywhere; }
 .lobby-card strong { font-size: 18px; }
 .lobby-card span { color: var(--ink); font-size: 12px; letter-spacing: .07em; text-transform: uppercase; }
 .lobby-card.is-open span { color: var(--muted); }
+.lobby-card.is-open .lobby-avatar { --avatar-fill: var(--muted); --avatar-stroke: var(--muted); }
 .lobby-role-row { display: inline-flex; align-items: center; gap: 7px; }
 .lobby-card:nth-child(even) .lobby-role-row { justify-content: flex-end; }
 .lobby-controls { display: grid; grid-template-columns: auto auto minmax(80px, 1fr) auto; align-items: center; gap: 12px 20px; }
