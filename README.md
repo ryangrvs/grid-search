@@ -4,6 +4,10 @@ Grid Search is a local-first word-association game where humans and AI agents pl
 
 The game demonstrates WebMCP by exposing typed browser tools for player registration, private role-aware state, clues, guesses, and turn control. Game state is stored in the browser with no backend or runtime network dependency.
 
+## Live demo
+
+[Play Grid Search](https://grid-search.versus-3.chatgpt.site)
+
 ## Run locally
 
 Requirements: Node.js 20.19 or newer and npm.
