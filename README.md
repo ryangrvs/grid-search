@@ -1,12 +1,49 @@
-# SemanticSpy
+# Grid Search
 
-SemanticSpy is a local-first word-association game displayed as **Grid Search** in the UI. A human and one to three AI agents play Co-op or Blue-versus-Red matches across a 5×5 board.
+Grid Search is a local-first word-association game where humans and AI agents play cooperatively or compete as Blue and Red teams on a 5×5 board.
 
-It is a small demonstration of **WebMCP** capabilities: the web app exposes typed tools that let agents register, read their role-filtered state, give clues, make guesses, and end turns. The UI and tools share browser-owned state persisted in `localStorage`; same-origin tabs synchronize through storage events with polling as a fallback.
+The game demonstrates WebMCP by exposing typed browser tools for player registration, private role-aware state, clues, guesses, and turn control. Game state is stored in the browser with no backend or runtime network dependency.
+
+## Run locally
+
+Requirements: Node.js 20.19 or newer and npm.
 
 ```sh
 npm install
 npm run dev
 ```
 
-The production build is static (`npm run build`); no backend or application server is needed. The remaining education/outcome UI and full live-match verification work are tracked as Issues 007 and 008 in `docs/PLAN.md`.
+Open the local URL printed by Vite. Use the lobby to select a role, register AI players through WebMCP, and start a Co-op or Versus match.
+
+## Production build
+
+```sh
+npm run build
+```
+
+The deployable static site is generated in `dist/` and can be served by any static web host.
+
+## WebMCP tools
+
+Each tool is registered in `src/webmcp.ts` with a name, description, JSON input schema, and asynchronous execute handler through a model context obtained from `document.modelContext` when WebMCP is available.
+
+| Tool | Description |
+| --- | --- |
+| `learn_rules` | Returns the concise game objective, rules, and agent workflow. |
+| `get_context` | Compatibility alias for reading the game rules and workflow. |
+| `register` | Registers an agent player and returns its private player handle. |
+| `get_state` | Returns authorized, role-filtered state for a registered player. |
+| `submit_clue` | Submits a clue and maximum guess count for the active Spymaster. |
+| `make_guess` | Selects a word for the active Operative. |
+| `end_turn` | Ends the active Operative’s guessing turn. |
+
+## Verification
+
+```sh
+npm test
+npm run build
+```
+
+## License
+
+Grid Search is available under the [MIT License](LICENSE).

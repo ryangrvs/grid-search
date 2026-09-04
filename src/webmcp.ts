@@ -114,7 +114,7 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
     },
     {
       name: 'get_state',
-      description: 'Read the current role-filtered SemanticSpy state for a registered player handle.',
+      description: 'Read the current role-filtered Grid Search state for a registered player handle.',
       inputSchema: schemas.get_state as JsonSchema,
       execute: async (args: Record<string, unknown>) => {
         requireKeys(args, ['playerHandle']);
@@ -152,7 +152,7 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
     },
     {
       name: 'register',
-      description: 'Register as a player in the local SemanticSpy lobby. Team and role are optional.',
+      description: 'Register as a player in the local Grid Search lobby. Team and role are optional.',
       inputSchema: schemas.register as JsonSchema,
       execute: async (args: Record<string, unknown>): Promise<RegistrationResult> => {
         const registration = registrationArgs(args);
@@ -164,6 +164,13 @@ export async function registerWebMCP(options: WebMCPOptions): Promise<WebMCPRegi
     },
   ];
 
-  for (const tool of tools) await host.registerTool(tool);
+  for (const tool of tools) {
+    await host.registerTool({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      execute: tool.execute,
+    });
+  }
   return { supported: true, registered: [...toolNames] };
 }
