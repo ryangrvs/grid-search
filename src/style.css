@@ -76,7 +76,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .clue-form { grid-template-columns: minmax(0, 1fr) 48px; }
 .clue-word-bubble { min-width: 0; }
 .clue-form input { width: 100%; min-width: 0; height: 40px; padding: 0 4px; border: 0; border-radius: 0; color: var(--ink); background: transparent; outline: none; font-size: clamp(.65rem, 1.8cqw, .875rem); font-weight: 700; line-height: 1.08; text-align: left; text-transform: uppercase; }
-.clue-form input::placeholder { color: var(--ink); opacity: 1; }
+.clue-form input::placeholder { color: var(--muted); opacity: 1; font-weight: 100; }
 .clue-form input:focus { box-shadow: none; }
 .clue-form input[type='number'] { appearance: textfield; }
 .clue-form input[type='number']::-webkit-inner-spin-button, .clue-form input[type='number']::-webkit-outer-spin-button { margin: 0; appearance: none; }
@@ -88,21 +88,22 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .clue-submit[hidden] { display: none; }
 
 .board-grid { grid-column: 1; grid-row: 2; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(4px, 1cqw, 10px); width: 100%; }
-.card { --card-border: var(--line); position: relative; min-width: 0; min-height: clamp(54px, 9cqw, 82px); padding: clamp(4px, 1cqw, 8px); overflow: hidden; border: 0; border-radius: var(--radius); box-shadow: inset 0 0 0 var(--stroke) var(--card-border); color: var(--muted); background: #fff; font-size: clamp(.65rem, 2.2cqw, 1rem); font-weight: 700; line-height: 1.08; overflow-wrap: anywhere; text-align: center; transition: transform .15s, color .15s; }
+.card { position: relative; min-width: 0; min-height: clamp(54px, 9cqw, 82px); padding: clamp(4px, 1cqw, 8px); overflow: hidden; border: var(--stroke) solid var(--ink); border-radius: var(--radius); color: var(--muted); background: #fff; font-size: clamp(.65rem, 2.2cqw, 1rem); font-weight: 700; line-height: 1.08; overflow-wrap: anywhere; text-align: center; transition: transform .15s, color .15s; }
 .card.word-long { font-size: clamp(.56rem, 1.9cqw, .9rem); letter-spacing: -.02em; }
 .card:disabled { opacity: 1; }
 .card:hover { transform: translateY(-2px); }
-.card.revealed { --card-border: var(--ink); color: transparent; }
+.card:focus-visible { border-color: var(--ink); }
+.card.revealed { color: transparent; }
 .card.revealed.blue { background: var(--team-blue); }
 .card.revealed.red { background: var(--team-red); }
 .card.revealed.innocent, .card.terminal.innocent { background: #c6c8cc; }
 .card.revealed.assassin { background: var(--ink); }
 .card.key, .card.terminal { color: var(--ink); background: #c6c8cc; }
-.card.key.blue, .card.terminal.blue, .card.revealed.blue { --card-border: var(--ink); background: var(--team-blue); }
-.card.key.red, .card.terminal.red, .card.revealed.red { --card-border: var(--ink); background: var(--team-red); }
+.card.key.blue, .card.terminal.blue, .card.revealed.blue { background: var(--team-blue); }
+.card.key.red, .card.terminal.red, .card.revealed.red { background: var(--team-red); }
 .card.key.innocent, .card.terminal.innocent { background: #c6c8cc; }
-.card.key.assassin, .card.terminal.assassin { --card-border: var(--ink); color: #fff; background: var(--ink); }
-.card.revealed.assassin { --card-border: var(--ink); color: transparent; background: var(--ink); }
+.card.key.assassin, .card.terminal.assassin { color: #fff; background: var(--ink); }
+.card.revealed.assassin { color: transparent; background: var(--ink); }
 .card.revealed:hover, .card.revealed:focus-visible { color: var(--ink); }
 .card.revealed.assassin:hover, .card.revealed.assassin:focus-visible { color: #fff; }
 .card .marker { display: none; }

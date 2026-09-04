@@ -413,8 +413,9 @@ class SemanticSpyApp {
   private sizeBubble(target: HTMLElement, word: string): void {
     const slot = target.closest('.player-slot');
     if (slot?.querySelector('.avatar-human')) slot.classList.add('has-wide-feedback');
+    const minimumWidth = target.classList.contains('is-form') ? 220 : 148;
     const width = word
-      ? Math.min(400, Math.max(148, 96 + word.length * 9))
+      ? Math.min(400, Math.max(minimumWidth, 96 + word.length * 9))
       : 220;
     target.style.setProperty('--bubble-width', `${width}px`);
   }
